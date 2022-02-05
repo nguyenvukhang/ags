@@ -1,0 +1,165 @@
+#!/bin/bash
+
+# colors
+_N='\033[0m'
+_R='\033[0;31m'
+_G='\033[0;32m'
+_Y='\033[0;33m'
+_B='\033[0;34m'
+_P='\033[0;35m'
+_C='\033[0;36m'
+_S='\033[0;37m' # Gray (Soft)
+
+# all git-status
+max_len=24
+ok="[ok]"
+color=true
+all_clean=true
+
+
+function color_up() {
+  local tag=$1
+  local map=(
+    "A,${GREEN}"
+    "D,${RED}"
+    # "+,${NORMAL}"
+    # "M,${NORMAL}"
+    # "??,${NORMAL}"
+  )
+  for symbol_color in $map; do
+    local symbol=${symbol_color%%,*}
+    local color=${symbol_color#*,}
+    tag=${tag/$symbol/${color}${symbol}${NORMAL}}
+  done
+  echo $tag
+}
+
+
+REPOS=$HOME/repos
+
+CONFIG="$HOME/.config/ags/scanlist"
+
+# create scan list
+# TODO: create a system-wide repo scanner
+scanlist=()
+while IFS= read -r line; do scanlist+=($line); done < "$CONFIG"
+
+# filter through scanlist to check if paths are valid git repositories
+# only accept directories which:
+#   1. exists
+#   2. are at the root of the git repository they are in
+filterlist=()
+status_only=()
+status_and_commits=()
+for i in ${scanlist[@]}; do
+  full=${i/\~/$HOME}
+  if [[ -d $full ]]; then
+    if [[ -e $full/.git ]]; then
+      if [[ $(git -C $full rev-parse --show-toplevel 2>/dev/null) = "$full" ]]; then
+        tracking=$(git -C $full status -sb)
+        if [[ $tracking == *"..."* ]]; then
+          status_and_commits+=($full)
+        else
+          printf "${_Y}has no tracking branch:${_N} $i\n"
+          status_only+=($full)
+        fi
+      else
+        printf "${_Y}not at git root:${_N} $i\n"
+      fi
+    else
+      printf "${_Y}not a git repo:${_N} $i\n"
+    fi
+  else
+    printf "${_R}invalid directory:${_N} $i\n"
+  fi
+done
+
+printf "\n"
+
+for dir in ${status_and_commits[@]}; do
+  short="${dir/$HOME/~}"
+  printf "${_S}${short}${_N}\n"
+
+  # git status
+  IFS=$'\n' read -r -d '' -a stats < <(git -C $dir status -s)
+  for stat in "${stats[@]}"; do
+    echo "$stat"
+  done
+
+  # git unpushed commits
+  IFS=$'\n' read -r -d '' -a commits < <(git -C $dir cherry -v --abbrev)
+  for commit in "${commits[@]}"; do
+    echo "$commit"
+  done
+done
+
+for dir in ${status_only[@]}; do
+  short="${dir/$HOME/~}"
+  printf "${_S}${short}${_N}\n"
+
+  # git status
+  IFS=$'\n' read -r -d '' -a stats < <(git -C $dir status -s)
+  for stat in "${stats[@]}"; do
+    echo "$stat"
+  done
+done
+
+# for dir_repo in $scanlist; do
+#   local dir=${dir_repo%%,*}
+#   local repo=${dir_repo#*,}
+#   [[ ${blacklist[(r)$repo]} == $repo ]] && continue # if in BLACKLIST, continue
+#   local len=${#repo}
+# 
+#   local stats=()
+#   while IFS= read -r line; do
+#     stats+=( "$line" )
+#   done < <( git -C $dir status -s )
+# 
+#   local commits=()
+#   while IFS= read -r line; do
+#     commits+=( "$line" )
+#   done < <( git -C $dir cherry -v --abbrev 2> /dev/null )
+# 
+#   local clean=true
+# 
+#   # uncommited changes
+#   [ "$stats" ] && clean=false
+# 
+#   # unpushed commits
+#   [ "$commits" ] && clean=false
+# 
+#   if [ "$clean" = false ]; then
+#     all_clean=false
+#     echo "\n${GRAY}[${CYAN}${repo}${GRAY}]${NORMAL}"
+# 
+#     # print git status
+#     for i in $stats; do
+#       local tag=${i[0,2]}
+#       [ "$color" = true ] && tag=$(color_up $tag)
+#       local file=${i[4,-1]}
+#       echo "$tag $file"
+#     done
+# 
+#     # list unpushed commits
+#     for i in $commits; do
+#       local tag=${i%% *}
+#       local commit=${${i#* }%% *}
+#       [ "$color" = true ] \
+#         && tag=$(color_up $tag) \
+#         && commit=${YELLOW}${${i#* }%% *}${NORMAL}
+#       post=${${i#* }#* }
+#       echo " $tag $commit $post"
+#     done
+#   fi
+# done
+# 
+# 
+# if [ "$all_clean" = true ]; then
+#   echo "\nscanned:"
+#   for dir_repo in $scanlist; do
+#     local repo=${dir_repo#*,}
+#     [[ ${blacklist[(r)$repo]} == $repo ]] && continue # if in BLACKLIST, continue
+#     echo "- $repo"
+#   done
+#   echo "\n${GREEN}all clean!${NORMAL}"
+# fi

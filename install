@@ -1,0 +1,4 @@
+#!/bin/sh
+
+INSTALL_LOCATION=$HOME/.local/bin
+cp ags $INSTALL_LOCATION/ags
