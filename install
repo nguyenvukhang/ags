@@ -3,5 +3,56 @@
 # This simply copies the script into INSTALL_LOCATION
 # Just make sure that INSTALL_LOCATION is part of your PATH variable
 
+uninstall=false
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -d|--delete)
+      uninstall=true
+      shift # past argument
+      ;;
+    *|-*|--*)
+      echo "Unknown option $1"
+      exit 1
+      ;;
+  esac
+done
+
 INSTALL_LOCATION=$HOME/.local/bin
-cp ags $INSTALL_LOCATION/ags
+MANFILE=/usr/local/share/man/man1/ags.1.gz
+
+if [[ $uninstall == false ]]; then
+  cp ags $INSTALL_LOCATION/ags
+  if [[ ! -f $MANFILE ]]; then
+    while true; do
+      read -p "Do you wish to install the man page? (Y/n)" yn
+      case $yn in
+        [Yy]* )
+          gzip --keep ags.1
+          sudo mv ags.1.gz /usr/local/share/man/man1;
+          break;;
+        [Nn]* ) exit;;
+      esac
+    done
+  fi
+else
+  rm -f $INSTALL_LOCATION/ags
+  MAN=/usr/local/share/man/man1/ags.1.gz
+  [ -f $MAN ] && sudo rm $MAN
+  ags_gone=false
+  man_gone=false
+
+  # uninstall checks
+  if ! command -v ags &> /dev/null; then
+    man_check=$(man ags 2>&1)
+    if [[ $man_check == "No manual entry for ags" ]]; then
+      echo "uninstall complete"
+      exit 0
+    else
+      echo "man page is still installed"
+    fi
+  else
+    echo "ags binary is still installed"
+  fi
+fi
+
+exit 0

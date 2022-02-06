@@ -1,0 +1,26 @@
+.\" Manpage for ags.
+.\" Contact brew4k@gmail.com to correct errors or typos.
+.TH man 1 "06 Feb 2022" "1.0" "ags man page"
+.SH NAME
+ags \- all (the) git statuses
+.SH SYNOPSIS
+ags [OPTIONS] [SCANFILE]
+.SH DESCRIPTION
+ags scans the list of paths provided in $HOME/.config/ags/scanlist for git
+statuses and unpushed commits to the remote branch that's currently tracked.
+.SH POSITIONAL ARGUMENTS
+.TP
+.I SCANFILE
+A file containing a list of git repository paths to scan. If
+unspecified, ags will default back to using $HOME/.config/ags/scanlist
+.SH OPTIONS
+.IP -h,\ --help
+Prints help information. Use --help for more details.
+.IP -e,\ --edit
+Opens default scanlist with \$EDITOR.
+.IP -v,\ --verbose
+Prints more details about each repository.
+.SH HOMEPAGE
+<https://github.com/nguyenvukhang/ags>
+.SH AUTHORS
+Nguyen Vu Khang  <brew4k@gmail.com>
