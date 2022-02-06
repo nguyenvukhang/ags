@@ -17,18 +17,17 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-INSTALL_LOCATION=$HOME/.local/bin
+INSTALL_LOCATION=/usr/local/bin
 MANFILE=/usr/local/share/man/man1/ags.1.gz
 
 if [[ $uninstall == false ]]; then
-  cp ags $INSTALL_LOCATION/ags
+  sudo cp ags $INSTALL_LOCATION/ags
   gzip --keep ags.1
   if ! cmp --silent -- ./ags.1.gz $MANFILE &>/dev/null; then
     while true; do
       read -p "Do you wish to install the man page? (Y/n)" yn
       case $yn in
         [Yy]* )
-          gzip --keep ags.1
           sudo mv ags.1.gz /usr/local/share/man/man1;
           break;;
         [Nn]* ) exit;;
