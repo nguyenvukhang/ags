@@ -77,40 +77,69 @@ done
 
 printf "\n"
 
+# operate on the filtered list
+# for each repository, check for:
+#   1. git status
+#   2. commits yet to be pushed to currently tracked branch
+
+# to be ran just before continuing to the next iteration.
+function check_clean() {
+  [[ $repo_clean == true ]] \
+    && printf "${_G} [ok]${_N}\n" \
+    || all_repos_clean=false
+}
+all_repos_clean=true
+
 for dir in ${filterlist[@]}; do
+  repo_clean=true
   short="${dir/$HOME/~}"
-  printf "${_S}${short}${_N}\n"
+  colored_short="${_N}$short${_N}"
+  printf "${_S}[${_N}${colored_short}${_S}]${_N}"
 
   # git status
   IFS=$'\n' read -r -d '' -a stats < <(git -C $dir status -s)
 
-  # print git status
-  for i in "${stats[@]}"; do
-    unstaged=${i:1:1}
-    if [[ $unstaged == " " ]]; then
-      printf "${_G}$i${_N}\n"
-    else
-      printf "${_R}$i${_N}\n"
-    fi
-  done
+  if [[ $stats ]]; then
+    printf "\n"
+    repo_clean=false
+    # print git status
+    for i in "${stats[@]}"; do
+      unstaged=${i:1:1}
+      if [[ $unstaged == " " ]]; then
+        printf "${_G}$i${_N}\n"
+      else
+        printf "${_R}$i${_N}\n"
+      fi
+    done
+  fi
 
   # if branch has been previously identified to have
   # no tracked remote branch, then skip the next step
-  [[ " ${status_only[*]} " =~ " ${dir} " ]] && continue
+  if [[ " ${status_only[*]} " =~ " ${dir} " ]]; then
+    check_clean
+    continue
+  fi
+
 
   # git unpushed commits (requires a remote tracking branch)
   IFS=$'\n' read -r -d '' -a commits < <(git -C $dir cherry -v --abbrev)
 
-  # print unpushed commits
-  for i in "${commits[@]}"; do
-    tag=${i%% *}
-    aftertag=${i#* }
-    commit=${aftertag%% *}
-    color_commit=${_Y}${commit}${_N}
-    aftercommit=${i#* }
-    post=${aftercommit#* }
-    printf " $tag $color_commit $post\n"
-  done
+  if [[ $commits ]]; then
+    printf "\n"
+    repo_clean=false
+    # print unpushed commits
+    for i in "${commits[@]}"; do
+      tag=${i%% *}
+      aftertag=${i#* }
+      commit=${aftertag%% *}
+      color_commit=${_Y}${commit}${_N}
+      aftercommit=${i#* }
+      post=${aftercommit#* }
+      printf " $tag $color_commit $post\n"
+    done
+  fi
+
+  check_clean
 
 done
 }
@@ -131,6 +160,11 @@ while [[ $# -gt 0 ]]; do
       HELP=true
       shift # past argument
       help_text
+      exit 0
+      ;;
+    -v|--verbose)
+      VERBOSE=true
+      shift # past argument
       exit 0
       ;;
     -*|--*)
