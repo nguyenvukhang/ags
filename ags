@@ -142,6 +142,10 @@ for dir in ${filterlist[@]}; do
   check_clean
 
 done
+
+if [[ $all_repos_clean == true ]]; then
+  printf "\n${_G}all repos clean!${_N}\n"
+fi
 }
 
 # handle arguments
