@@ -1,4 +1,7 @@
 #!/bin/sh
 
+# This simply copies the script into INSTALL_LOCATION
+# Just make sure that INSTALL_LOCATION is part of your PATH variable
+
 INSTALL_LOCATION=$HOME/.local/bin
 cp ags $INSTALL_LOCATION/ags
