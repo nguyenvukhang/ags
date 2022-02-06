@@ -20,18 +20,19 @@ all_clean=true
 function color_up() {
   local tag=$1
   local map=(
-    "A,${GREEN}"
-    "D,${RED}"
-    # "+,${NORMAL}"
-    # "M,${NORMAL}"
-    # "??,${NORMAL}"
+    "A,${_G}"
+    "D,${_R}"
+    # "+,${_N}"
+    # "M,${_N}"
+    # "??,${_N}"
   )
-  for symbol_color in $map; do
-    local symbol=${symbol_color%%,*}
-    local color=${symbol_color#*,}
-    tag=${tag/$symbol/${color}${symbol}${NORMAL}}
+  for symbol_color in ${map[@]}; do
+    symbol=${symbol_color%%,*}
+    color=${symbol_color#*,}
+    tag=${tag/$symbol/${color}${symbol}${_N}}
   done
-  echo $tag
+  echo "got here"
+  printf "$tag"
 }
 
 
@@ -50,16 +51,14 @@ while IFS= read -r line; do scanlist+=($line); done < "$CONFIG"
 #   2. are at the root of the git repository they are in
 filterlist=()
 status_only=()
-status_and_commits=()
 for i in ${scanlist[@]}; do
   full=${i/\~/$HOME}
   if [[ -d $full ]]; then
     if [[ -e $full/.git ]]; then
       if [[ $(git -C $full rev-parse --show-toplevel 2>/dev/null) = "$full" ]]; then
+        filterlist+=($full)
         tracking=$(git -C $full status -sb)
-        if [[ $tracking == *"..."* ]]; then
-          status_and_commits+=($full)
-        else
+        if [[ $tracking != *"..."* ]]; then
           printf "${_Y}has no tracking branch:${_N} $i\n"
           status_only+=($full)
         fi
@@ -76,32 +75,39 @@ done
 
 printf "\n"
 
-for dir in ${status_and_commits[@]}; do
+for dir in ${filterlist[@]}; do
   short="${dir/$HOME/~}"
   printf "${_S}${short}${_N}\n"
 
   # git status
   IFS=$'\n' read -r -d '' -a stats < <(git -C $dir status -s)
-  for stat in "${stats[@]}"; do
-    echo "$stat"
+
+  # print git status
+  for i in "${stats[@]}"; do
+    unstaged=${i:1:1}
+    if [[ $unstaged == " " ]]; then
+      printf "${_G}$i${_N}\n"
+    else
+      printf "${_R}$i${_N}\n"
+    fi
   done
+
+  [[ " ${status_only[*]} " =~ " ${dir} " ]] && continue
 
   # git unpushed commits
   IFS=$'\n' read -r -d '' -a commits < <(git -C $dir cherry -v --abbrev)
-  for commit in "${commits[@]}"; do
-    echo "$commit"
-  done
-done
 
-for dir in ${status_only[@]}; do
-  short="${dir/$HOME/~}"
-  printf "${_S}${short}${_N}\n"
-
-  # git status
-  IFS=$'\n' read -r -d '' -a stats < <(git -C $dir status -s)
-  for stat in "${stats[@]}"; do
-    echo "$stat"
+  # list unpushed commits
+  for i in "${commits[@]}"; do
+    tag=${i%% *}
+    aftertag=${i#* }
+    commit=${aftertag%% *}
+    color_commit=${_Y}${commit}${_N}
+    aftercommit=${i#* }
+    post=${aftercommit#* }
+    printf " $tag $color_commit $post\n"
   done
+
 done
 
 # for dir_repo in $scanlist; do
@@ -138,17 +144,6 @@ done
 #       [ "$color" = true ] && tag=$(color_up $tag)
 #       local file=${i[4,-1]}
 #       echo "$tag $file"
-#     done
-# 
-#     # list unpushed commits
-#     for i in $commits; do
-#       local tag=${i%% *}
-#       local commit=${${i#* }%% *}
-#       [ "$color" = true ] \
-#         && tag=$(color_up $tag) \
-#         && commit=${YELLOW}${${i#* }%% *}${NORMAL}
-#       post=${${i#* }#* }
-#       echo " $tag $commit $post"
 #     done
 #   fi
 # done
