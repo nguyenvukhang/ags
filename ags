@@ -153,11 +153,11 @@ function iterate_filtered() {
     # if branch has been previously identified to have
     # no tracked remote branch, then skip the next step
     if [[ " ${status_only[*]} " =~ " ${dir} " ]]; then
-      if [[ $SHORT == true && $stats ]]; then
-        short_summary
-      else
+      if [[ $VERBOSE == true && $stats ]]; then
         print_title
         git -C $dir status -s
+      else
+        short_summary
       fi
       continue
     fi
@@ -166,12 +166,14 @@ function iterate_filtered() {
     IFS=$'\n' read -r -d '' -a commits < <(git -C $dir cherry -v --abbrev)
     [[ $commits ]] && repo_clean=false && has_commits=true
 
-    if [[ $SHORT == true && ($commits || $stats) ]]; then
-      short_summary
-    else
-      print_title
-      git -C $dir status -s
-      print_commits
+    if [[ $commits || $stats ]]; then
+      if [[ $VERBOSE == true ]]; then
+        print_title
+        git -C $dir status -s
+        print_commits
+      else
+        short_summary
+      fi
     fi
 
   done
@@ -208,10 +210,6 @@ function handle_arguments() {
         ;;
       -v|--verbose)
         VERBOSE=true
-        shift # past argument
-        ;;
-      -s|--short)
-        SHORT=true
         shift # past argument
         ;;
       -*|--*)
