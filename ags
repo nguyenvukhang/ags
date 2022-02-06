@@ -1,5 +1,12 @@
 #!/bin/bash
 
+CONFIG="$HOME/.config/ags/scanlist"
+
+
+function help_text() {
+  echo 'hi'
+}
+
 # colors
 _N='\033[0m'
 _R='\033[0;31m'
@@ -16,32 +23,12 @@ ok="[ok]"
 color=true
 all_clean=true
 
-
-function color_up() {
-  local tag=$1
-  local map=(
-    "A,${_G}"
-    "D,${_R}"
-    # "+,${_N}"
-    # "M,${_N}"
-    # "??,${_N}"
-  )
-  for symbol_color in ${map[@]}; do
-    symbol=${symbol_color%%,*}
-    color=${symbol_color#*,}
-    tag=${tag/$symbol/${color}${symbol}${_N}}
-  done
-  echo "got here"
-  printf "$tag"
-}
-
-
 REPOS=$HOME/repos
 
-CONFIG="$HOME/.config/ags/scanlist"
 
 # create scan list
 # TODO: create a system-wide repo scanner
+function main() {
 scanlist=()
 while IFS= read -r line; do scanlist+=($line); done < "$CONFIG"
 
@@ -59,7 +46,7 @@ for i in ${scanlist[@]}; do
         filterlist+=($full)
         tracking=$(git -C $full status -sb)
         if [[ $tracking != *"..."* ]]; then
-          printf "${_Y}has no tracking branch:${_N} $i\n"
+          # printf "${_Y}has no tracking branch:${_N} $i\n"
           status_only+=($full)
         fi
       else
@@ -92,12 +79,14 @@ for dir in ${filterlist[@]}; do
     fi
   done
 
+  # if branch has been previously identified to have
+  # no tracked remote branch, then skip the next step
   [[ " ${status_only[*]} " =~ " ${dir} " ]] && continue
 
-  # git unpushed commits
+  # git unpushed commits (requires a remote tracking branch)
   IFS=$'\n' read -r -d '' -a commits < <(git -C $dir cherry -v --abbrev)
 
-  # list unpushed commits
+  # print unpushed commits
   for i in "${commits[@]}"; do
     tag=${i%% *}
     aftertag=${i#* }
@@ -109,52 +98,35 @@ for dir in ${filterlist[@]}; do
   done
 
 done
+}
 
-# for dir_repo in $scanlist; do
-#   local dir=${dir_repo%%,*}
-#   local repo=${dir_repo#*,}
-#   [[ ${blacklist[(r)$repo]} == $repo ]] && continue # if in BLACKLIST, continue
-#   local len=${#repo}
-# 
-#   local stats=()
-#   while IFS= read -r line; do
-#     stats+=( "$line" )
-#   done < <( git -C $dir status -s )
-# 
-#   local commits=()
-#   while IFS= read -r line; do
-#     commits+=( "$line" )
-#   done < <( git -C $dir cherry -v --abbrev 2> /dev/null )
-# 
-#   local clean=true
-# 
-#   # uncommited changes
-#   [ "$stats" ] && clean=false
-# 
-#   # unpushed commits
-#   [ "$commits" ] && clean=false
-# 
-#   if [ "$clean" = false ]; then
-#     all_clean=false
-#     echo "\n${GRAY}[${CYAN}${repo}${GRAY}]${NORMAL}"
-# 
-#     # print git status
-#     for i in $stats; do
-#       local tag=${i[0,2]}
-#       [ "$color" = true ] && tag=$(color_up $tag)
-#       local file=${i[4,-1]}
-#       echo "$tag $file"
-#     done
-#   fi
-# done
-# 
-# 
-# if [ "$all_clean" = true ]; then
-#   echo "\nscanned:"
-#   for dir_repo in $scanlist; do
-#     local repo=${dir_repo#*,}
-#     [[ ${blacklist[(r)$repo]} == $repo ]] && continue # if in BLACKLIST, continue
-#     echo "- $repo"
-#   done
-#   echo "\n${GREEN}all clean!${NORMAL}"
-# fi
+# handle arguments
+POSITIONAL_ARGS=()
+EXECUTE_MAIN=true
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -e|--edit)
+      EDIT=true
+      shift
+      echo "open the config file with editor"
+      exit 0
+      ;;
+    -h|--help)
+      HELP=true
+      shift # past argument
+      echo "send help text"
+      exit 0
+      ;;
+    -*|--*)
+      echo "Unknown option $1"
+      exit 1
+      ;;
+    *)
+      POSITIONAL_ARGS+=("$1") # save positional arg
+      shift # past argument
+      ;;
+  esac
+done
+
+# execute if no arguments are passed.
+[ -z $POSITIONAL_ARGS ] && main
