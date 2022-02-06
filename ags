@@ -22,7 +22,7 @@ OPTIONS:
 EOF
 }
 
-# colors
+# colors and aesthetics
 _N='\033[0m'
 _R='\033[0;31m'
 _G='\033[0;32m'
@@ -31,56 +31,44 @@ _B='\033[0;34m'
 _P='\033[0;35m'
 _C='\033[0;36m'
 _S='\033[0;37m' # Gray (Soft)
+indent=2
+spaces=$(printf "%-${indent}s")
 
-# all git-status
-max_len=0
-color=true
-all_clean=true
+function filter_scanlist() {
+  # filter through scanlist to check if paths are valid git repositories
+  # only accept directories which:
+  #   1. exists
+  #   2. are at the root of the git repository they are in
 
-REPOS=$HOME/repos
+  # read the full scanlist from config file
+  scanlist=()
+  while IFS= read -r line; do scanlist+=($line); done < "$CONFIG"
 
-
-# create scan list
-# TODO: create a system-wide repo scanner
-function main() {
-scanlist=()
-while IFS= read -r line; do scanlist+=($line); done < "$CONFIG"
-
-# filter through scanlist to check if paths are valid git repositories
-# only accept directories which:
-#   1. exists
-#   2. are at the root of the git repository they are in
-filterlist=()
-status_only=()
-for i in ${scanlist[@]}; do
-  full=${i/\~/$HOME}
-  if [[ -d $full ]]; then
-    if [[ -e $full/.git ]]; then
-      if [[ $(git -C $full rev-parse --show-toplevel 2>/dev/null) = "$full" ]]; then
-        filterlist+=($full)
-        [[ ${#full} -gt $max_len ]] && max_len=${#full}
-        tracking=$(git -C $full status -sb)
-        if [[ $tracking != *"..."* ]]; then
-          # printf "${_Y}has no tracking branch:${_N} $i\n"
-          status_only+=($full)
+  filterlist=()
+  status_only=()
+  for i in ${scanlist[@]}; do
+    full=${i/\~/$HOME}
+    if [[ -d $full ]]; then
+      if [[ -e $full/.git ]]; then
+        if [[ $(git -C $full rev-parse --show-toplevel 2>/dev/null) = "$full" ]]; then
+          filterlist+=($full)
+          [[ ${#full} -gt $max_len ]] && max_len=${#full}
+          tracking=$(git -C $full status -sb)
+          if [[ $tracking != *"..."* ]]; then
+            # printf "${_Y}has no tracking branch:${_N} $i\n"
+            status_only+=($full)
+          fi
+        else
+          printf "${_Y}not at git root:${_N} $i\n"
         fi
       else
-        printf "${_Y}not at git root:${_N} $i\n"
+        printf "${_Y}not a git repo:${_N} $i\n"
       fi
     else
-      printf "${_Y}not a git repo:${_N} $i\n"
+      printf "${_Y}invalid directory:${_N} $i\n"
     fi
-  else
-    printf "${_Y}invalid directory:${_N} $i\n"
-  fi
-done
-
-printf "\n"
-
-# operate on the filtered list
-# for each repository, check for:
-#   1. git status
-#   2. commits yet to be pushed to currently tracked branch
+  done
+}
 
 # to be ran just before continuing to the next iteration.
 function check_clean() {
@@ -91,106 +79,129 @@ function check_clean() {
     all_repos_clean=false
   fi
 }
-all_repos_clean=true
 
-indent=2
-spaces=$(printf "%-${indent}s")
+function print_status() {
+  if [[ $stats ]]; then
+    repo_clean=false
+    # print git status
+    for i in "${stats[@]}"; do
+      unstaged=${i:1:1}
+      if [[ $unstaged == " " ]]; then
+        printf "$spaces${_G}$i${_N}\n"
+      else
+        printf "$spaces${_R}$i${_N}\n"
+      fi
+    done
+  fi
+}
 
-for dir in ${filterlist[@]}; do
-  repo_clean=true
-  short="${dir/$HOME/~}"
+function print_commits() {
+  if [[ $commits ]]; then
+    repo_clean=false
+    # print unpushed commits
+    for i in "${commits[@]}"; do
+      tag=${i%% *}
+      aftertag=${i#* }
+      commit=${aftertag%% *}
+      color_commit=${_Y}${commit}${_N}
+      aftercommit=${i#* }
+      post=${aftercommit#* }
+      printf "$spaces $tag $color_commit $post\n"
+    done
+  fi
+}
 
-  function print_status() {
-    if [[ $stats ]]; then
-      repo_clean=false
-      # print git status
-      for i in "${stats[@]}"; do
-        unstaged=${i:1:1}
-        if [[ $unstaged == " " ]]; then
-          printf "$spaces${_G}$i${_N}\n"
-        else
-          printf "$spaces${_R}$i${_N}\n"
-        fi
-      done
+# operate on the filtered list
+# for each repository, check for:
+#   1. git status
+#   2. commits yet to be pushed to currently tracked branch
+
+function iterate_filtered() {
+  all_repos_clean=true
+  for dir in ${filterlist[@]}; do
+    repo_clean=true
+    short="${dir/$HOME/~}"
+
+
+    # git status
+    IFS=$'\n' read -r -d '' -a stats < <(git -C $dir status -s)
+    [[ $stats ]] && repo_clean=false
+
+    # if branch has been previously identified to have
+    # no tracked remote branch, then skip the next step
+    if [[ " ${status_only[*]} " =~ " ${dir} " ]]; then
+      check_clean
+      print_status
+      continue
     fi
-  }
 
-  function print_commits() {
-    if [[ $commits ]]; then
-      repo_clean=false
-      # print unpushed commits
-      for i in "${commits[@]}"; do
-        tag=${i%% *}
-        aftertag=${i#* }
-        commit=${aftertag%% *}
-        color_commit=${_Y}${commit}${_N}
-        aftercommit=${i#* }
-        post=${aftercommit#* }
-        printf "$spaces $tag $color_commit $post\n"
-      done
-    fi
-  }
+    # git unpushed commits (requires a remote tracking branch)
+    IFS=$'\n' read -r -d '' -a commits < <(git -C $dir cherry -v --abbrev)
+    [[ $commits ]] && repo_clean=false
 
-  # git status
-  IFS=$'\n' read -r -d '' -a stats < <(git -C $dir status -s)
-  [[ $stats ]] && repo_clean=false
-
-  # if branch has been previously identified to have
-  # no tracked remote branch, then skip the next step
-  if [[ " ${status_only[*]} " =~ " ${dir} " ]]; then
     check_clean
     print_status
-    continue
+    print_commits
+
+  done
+
+  if [[ $all_repos_clean == true ]]; then
+    printf "\n${_G}all repos clean!${_N}\n"
   fi
+}
 
-  # git unpushed commits (requires a remote tracking branch)
-  IFS=$'\n' read -r -d '' -a commits < <(git -C $dir cherry -v --abbrev)
-  [[ $commits ]] && repo_clean=false
-
-  check_clean
-  print_status
-  print_commits
-
-done
-
-if [[ $all_repos_clean == true ]]; then
-  printf "\n${_G}all repos clean!${_N}\n"
-fi
+# create scan list
+# TODO: create a system-wide repo scanner
+function main() {
+  filter_scanlist
+  iterate_filtered
 }
 
 # handle arguments
-POSITIONAL_ARGS=()
-EXECUTE_MAIN=true
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    -e|--edit)
-      EDIT=true
-      shift
-      echo "open the config file with editor"
-      $EDITOR $CONFIG
-      exit 0
-      ;;
-    -h|--help)
-      HELP=true
-      shift # past argument
-      help_text
-      exit 0
-      ;;
-    -v|--verbose)
-      VERBOSE=true
-      shift # past argument
-      exit 0
-      ;;
-    -*|--*)
-      echo "Unknown option $1"
-      exit 1
-      ;;
-    *)
-      POSITIONAL_ARGS+=("$1") # save positional arg
-      shift # past argument
-      ;;
-  esac
-done
+function handle_arguments() {
+  POSITIONAL_ARGS=()
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      -e|--edit)
+        EDIT=true
+        shift
+        echo "open the config file with editor"
+        $EDITOR $CONFIG
+        exit 0
+        ;;
+      -h|--help)
+        HELP=true
+        shift # past argument
+        help_text
+        exit 0
+        ;;
+      -v|--verbose)
+        VERBOSE=true
+        shift # past argument
+        ;;
+      -s|--short)
+        SHORT=true
+        shift # past argument
+        ;;
+      -*|--*)
+        echo "Unknown option $1"
+        exit 1
+        ;;
+      *)
+        POSITIONAL_ARGS+=("$1") # save positional arg
+        shift # past argument
+        ;;
+    esac
+  done
 
-# execute if no arguments are passed.
-[ -z $POSITIONAL_ARGS ] && main
+  # only continue execution if there are no positional arguments
+  if [[ ${#POSITIONAL_ARGS[@]} -ne 0 ]]; then
+    printf "Positional arguments are currently unsupported.\n"
+    help_text
+    exit 0
+  fi
+}
+
+# main flow
+handle_arguments "$@"
+main
