@@ -22,7 +22,8 @@ MANFILE=/usr/local/share/man/man1/ags.1.gz
 
 if [[ $uninstall == false ]]; then
   cp ags $INSTALL_LOCATION/ags
-  if [[ ! -f $MANFILE ]]; then
+  gzip --keep ags.1
+  if ! cmp --silent -- ./ags.1.gz $MANFILE &>/dev/null; then
     while true; do
       read -p "Do you wish to install the man page? (Y/n)" yn
       case $yn in
@@ -34,6 +35,7 @@ if [[ $uninstall == false ]]; then
       esac
     done
   fi
+  rm -f ags.1.gz
 else
   rm -f $INSTALL_LOCATION/ags
   MAN=/usr/local/share/man/man1/ags.1.gz
