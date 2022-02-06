@@ -71,7 +71,7 @@ function filter_scanlist() {
 }
 
 # to be ran just before continuing to the next iteration.
-function check_clean() {
+function print_title() {
   if [[ $repo_clean == true ]]; then
     printf "${_G}ok${_S} $short${_N}\n"
   else
@@ -148,10 +148,9 @@ function iterate_filtered() {
     # no tracked remote branch, then skip the next step
     if [[ " ${status_only[*]} " =~ " ${dir} " ]]; then
       if [[ $SHORT == true && $stats ]]; then
-        # printf "print short status only\n"
         short_summary
       else
-        check_clean
+        print_title
         print_status
       fi
       continue
@@ -162,10 +161,9 @@ function iterate_filtered() {
     [[ $commits ]] && repo_clean=false && has_commits=true
 
     if [[ $SHORT == true && ($commits || $stats) ]]; then
-      # printf "print short status + commit\n"
       short_summary
     else
-      check_clean
+      print_title
       print_status
       print_commits
     fi
@@ -223,9 +221,14 @@ function handle_arguments() {
 
   # only continue execution if there are no positional arguments
   if [[ ${#POSITIONAL_ARGS[@]} -ne 0 ]]; then
-    printf "Positional arguments are currently unsupported.\n"
-    help_text
-    exit 0
+    exrc="${POSITIONAL_ARGS[0]}"
+    [ -f $exrc ] && echo "$exrc exists!"
+    CONFIG=$exrc
+    if [[ ${#POSITIONAL_ARGS[@]} -gt 1 ]]; then
+      printf "Multiple positional arguments are currently unsupported.\n"
+      help_text
+      exit 0
+    fi
   fi
 }
 

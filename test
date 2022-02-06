@@ -1,0 +1,77 @@
+#!/bin/bash
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+SCRIPT_FILENAME="${0##*/}"
+
+# execute this when script stops suddenly
+TEST_DIR="test_root"
+trap "rm -rf $SCRIPT_DIR/$TEST_DIR" EXIT
+
+function main() {
+
+  R=$SCRIPT_DIR/$TEST_DIR
+
+  # create test git repositories
+  mkdir -p $R/alpha/bravo/charlie/delta/echo/foxtrot
+  mkdir $R/alpha/one
+  mkdir $R/alpha/two
+
+
+  # same file staged and unstaged
+  # unstaged deletion
+  # unpushed commit
+  # no remote branch
+  # has remote branch
+
+  # git dance
+  cd $R/alpha/one && git init >/dev/null
+
+  touch untracked_file
+
+  touch untracked_deletion
+  git add untracked_deletion
+  git commit -m "added file: untracked_deletion" >/dev/null
+  rm untracked_deletion
+
+  touch staged_deletion
+  git add staged_deletion
+  git commit -m "added file: staged_deletion" >/dev/null
+  rm staged_deletion
+  git add staged_deletion
+
+  echo $PWD && git status -s
+
+  cd $R/alpha/two && git init >/dev/null
+
+  touch another_file_staged_unstaged
+  git add another_file_staged_unstaged
+  git commit -m "added file: another_file_staged_unstaged" >/dev/null
+  echo "I love pizza">>another_file_staged_unstaged
+  git add another_file_staged_unstaged
+  echo "I love bubble tea">>another_file_staged_unstaged
+
+  echo "hello world">same_file_staged_unstaged
+  git add same_file_staged_unstaged
+  echo "what's up">>same_file_staged_unstaged
+
+  touch staged_file
+  git add staged_file
+
+  echo $PWD && git status -s
+
+}
+
+# final output {{{
+_N='\033[0m'
+_Y='\033[0;33m'
+_S='\033[0;37m' # Gray (Soft)
+printf "${_S}= ${_Y}TEST${_S} =================================${_N}\n"
+main
+printf "${_S}========================================${_S}\n"
+printf "${_S}= ${_Y}AGS${_S} ==================================${_N}\n"
+$SCRIPT_DIR/ags $SCRIPT_DIR/test-scanlist
+printf "${_S}========================================${_S}\n"
+printf "${_S}= ${_Y}TREE${_S} =================================${_N}\n"
+tree $R
+printf "${_S}========================================${_S}\n"
+# }}}
