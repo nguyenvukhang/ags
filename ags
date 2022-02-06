@@ -11,12 +11,17 @@ all-git-status (ags) scans the list of paths provided in
 the remote branch that's currently tracked.
 
 USAGE:
-    ags [OPTIONS]
+    ags [OPTIONS] [SCANFILE]
+
+POSITIONAL ARGUMENTS
+   SCANFILE
+       A file containing a list of directories to scan through.
+       If left blank, it defaults to \$HOME/.config/ags/scanlist.
 
 OPTIONS:
     -h, --help          Prints help information.
                         Use --help for more details.
-    -e, --edit          Open repository scanlist with \$EDITOR.
+    -e, --edit          Opens default scanlist with \$EDITOR.
     -v, --verbose       Prints more details about each repository.
 
 EOF
@@ -122,7 +127,7 @@ function print_commits() {
       color_commit=${_Y}${commit}${_N}
       aftercommit=${i#* }
       post=${aftercommit#* }
-      printf "$spaces $tag $color_commit $post\n"
+      printf " $tag $color_commit $post\n"
     done
   fi
 }
@@ -141,7 +146,8 @@ function iterate_filtered() {
     short="${dir/$HOME/~}"
 
     # git status
-    IFS=$'\n' read -r -d '' -a stats < <(git -C $dir status -s)
+    # IFS=$'\n' read -r -d '' -a stats < <(git -C $dir status -s)
+    stats=$(git -C $dir status -s)
     [[ $stats ]] && repo_clean=false && has_stats=true
 
     # if branch has been previously identified to have
@@ -151,7 +157,7 @@ function iterate_filtered() {
         short_summary
       else
         print_title
-        print_status
+        git -C $dir status -s
       fi
       continue
     fi
@@ -164,7 +170,7 @@ function iterate_filtered() {
       short_summary
     else
       print_title
-      print_status
+      git -C $dir status -s
       print_commits
     fi
 
@@ -222,8 +228,12 @@ function handle_arguments() {
   # only continue execution if there are no positional arguments
   if [[ ${#POSITIONAL_ARGS[@]} -ne 0 ]]; then
     exrc="${POSITIONAL_ARGS[0]}"
-    [ -f $exrc ] && echo "$exrc exists!"
-    CONFIG=$exrc
+    if [ -f $exrc ]; then
+      CONFIG=$exrc
+    else
+      printf "scanlist not found\n"
+      exit 1
+    fi
     if [[ ${#POSITIONAL_ARGS[@]} -gt 1 ]]; then
       printf "Multiple positional arguments are currently unsupported.\n"
       help_text

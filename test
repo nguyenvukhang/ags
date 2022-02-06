@@ -2,28 +2,31 @@
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 SCRIPT_FILENAME="${0##*/}"
+TEST_DIR="test_root"
+R=$SCRIPT_DIR/$TEST_DIR
+tree=false
 
 # execute this when script stops suddenly
-TEST_DIR="test_root"
 trap "rm -rf $SCRIPT_DIR/$TEST_DIR" EXIT
+
+function create_scanlist() {
+touch $R/scanlist
+cat <<EOF > $R/scanlist
+$R/alpha/one
+$R/alpha/two
+$R/alpha/three
+$R/alpha/four
+EOF
+}
 
 function main() {
 
-  R=$SCRIPT_DIR/$TEST_DIR
-
   # create test git repositories
   mkdir -p $R/alpha/bravo/charlie/delta/echo/foxtrot
+
+  create_scanlist
+
   mkdir $R/alpha/one
-  mkdir $R/alpha/two
-
-
-  # same file staged and unstaged
-  # unstaged deletion
-  # unpushed commit
-  # no remote branch
-  # has remote branch
-
-  # git dance
   cd $R/alpha/one && git init >/dev/null
 
   touch untracked_file
@@ -33,45 +36,105 @@ function main() {
   git commit -m "added file: untracked_deletion" >/dev/null
   rm untracked_deletion
 
-  touch staged_deletion
+  echo "staged_deletion" >staged_deletion
   git add staged_deletion
   git commit -m "added file: staged_deletion" >/dev/null
   rm staged_deletion
   git add staged_deletion
-
-  echo $PWD && git status -s
-
-  cd $R/alpha/two && git init >/dev/null
-
-  touch another_file_staged_unstaged
-  git add another_file_staged_unstaged
-  git commit -m "added file: another_file_staged_unstaged" >/dev/null
-  echo "I love pizza">>another_file_staged_unstaged
-  git add another_file_staged_unstaged
-  echo "I love bubble tea">>another_file_staged_unstaged
-
-  echo "hello world">same_file_staged_unstaged
-  git add same_file_staged_unstaged
-  echo "what's up">>same_file_staged_unstaged
 
   touch staged_file
   git add staged_file
 
   echo $PWD && git status -s
 
+  mkdir $R/alpha/two
+  cd $R/alpha/two && git init >/dev/null
+
+  touch modified_file_modified
+  echo "modified_file_deleted">modified_file_deleted
+  git add modified_file_deleted
+  git add modified_file_modified
+  git commit -m "added file: modified_file_modified" >/dev/null
+  echo "I love pizza">>modified_file_modified
+  git add modified_file_modified
+  echo "I love bubble tea">>modified_file_modified
+
+  echo "hello world">new_file_modified
+  git add new_file_modified
+  echo "what's up">>new_file_modified
+
+  echo "new_file_deleted">new_file_deleted
+  git add new_file_deleted
+  rm new_file_deleted
+
+  echo "modified_file_deleted" >>modified_file_deleted
+  git add modified_file_deleted
+  rm modified_file_deleted
+
+  echo $PWD && git status -s
+
+  mkdir $R/alpha/three.git
+  cd $R/alpha/three.git && git init --bare >/dev/null
+
+  mkdir $R/alpha/three
+  cd $R/alpha/three && git init >/dev/null
+
+  git remote add origin ../three.git
+  touch gold
+  git add gold
+  git commit -m "added file: gold" >/dev/null
+  git branch -m master
+  git push --quiet --set-upstream origin master >/dev/null
+
+  touch unpushed_commit
+  git add unpushed_commit
+  git commit -m "unpushed_commit" >/dev/null
+
+  echo $PWD && git status -s
+
+  cp -r $R/alpha/three.git $R/alpha/four.git
+  cp -r $R/alpha/three $R/alpha/four
+  cd $R/alpha/four
+  git remote set-url origin ../four.git
+  git add --all
+  git push --quiet >/dev/null
+
+  echo $PWD && git status -s
 }
 
 # final output {{{
+
+function divider() {
+  printf "${_S}= ${_Y}AGS${_S} ($1)${_N}\n"
+}
+function plain_divider() {
+  printf "${_S}========================================${_S}\n"
+}
+function title() {
+  printf "${_S}= ${_Y}$1${_S}${_N}\n"
+}
+
 _N='\033[0m'
 _Y='\033[0;33m'
 _S='\033[0;37m' # Gray (Soft)
-printf "${_S}= ${_Y}TEST${_S} =================================${_N}\n"
+
+plain_divider
+title "TEST"
 main
-printf "${_S}========================================${_S}\n"
-printf "${_S}= ${_Y}AGS${_S} ==================================${_N}\n"
-$SCRIPT_DIR/ags $SCRIPT_DIR/test-scanlist
-printf "${_S}========================================${_S}\n"
-printf "${_S}= ${_Y}TREE${_S} =================================${_N}\n"
-tree $R
-printf "${_S}========================================${_S}\n"
+
+plain_divider
+
+divider "wrong scanlist"
+$SCRIPT_DIR/ags $R/wrong_scanlist
+
+divider "main"
+$SCRIPT_DIR/ags $R/scanlist
+
+if [[ $tree == true ]]; then
+  plain_divider
+  title "TREE"
+  tree $R
+fi
+
+plain_divider
 # }}}
