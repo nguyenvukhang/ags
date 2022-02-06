@@ -33,8 +33,7 @@ _C='\033[0;36m'
 _S='\033[0;37m' # Gray (Soft)
 
 # all git-status
-max_len=24
-ok="[ok]"
+max_len=0
 color=true
 all_clean=true
 
@@ -59,6 +58,7 @@ for i in ${scanlist[@]}; do
     if [[ -e $full/.git ]]; then
       if [[ $(git -C $full rev-parse --show-toplevel 2>/dev/null) = "$full" ]]; then
         filterlist+=($full)
+        [[ ${#full} -gt $max_len ]] && max_len=${#full}
         tracking=$(git -C $full status -sb)
         if [[ $tracking != *"..."* ]]; then
           # printf "${_Y}has no tracking branch:${_N} $i\n"
@@ -84,9 +84,12 @@ printf "\n"
 
 # to be ran just before continuing to the next iteration.
 function check_clean() {
-  [[ $repo_clean == true ]] \
-    && printf "${_G} [ok]${_N}\n" \
-    || all_repos_clean=false
+  if [[ $repo_clean == true ]]; then
+    printf "${_G}ok:${_S} $short${_N}\n"
+  else
+    printf "${_S}[${_N}$short${_S}]${_N}\n"
+    all_repos_clean=false
+  fi
 }
 all_repos_clean=true
 
@@ -96,53 +99,57 @@ spaces=$(printf "%-${indent}s")
 for dir in ${filterlist[@]}; do
   repo_clean=true
   short="${dir/$HOME/~}"
-  colored_short="${_N}$short${_N}"
-  printf "${_S}[${_N}${colored_short}${_S}]${_N}"
+
+  function print_status() {
+    if [[ $stats ]]; then
+      repo_clean=false
+      # print git status
+      for i in "${stats[@]}"; do
+        unstaged=${i:1:1}
+        if [[ $unstaged == " " ]]; then
+          printf "$spaces${_G}$i${_N}\n"
+        else
+          printf "$spaces${_R}$i${_N}\n"
+        fi
+      done
+    fi
+  }
+
+  function print_commits() {
+    if [[ $commits ]]; then
+      repo_clean=false
+      # print unpushed commits
+      for i in "${commits[@]}"; do
+        tag=${i%% *}
+        aftertag=${i#* }
+        commit=${aftertag%% *}
+        color_commit=${_Y}${commit}${_N}
+        aftercommit=${i#* }
+        post=${aftercommit#* }
+        printf "$spaces $tag $color_commit $post\n"
+      done
+    fi
+  }
 
   # git status
   IFS=$'\n' read -r -d '' -a stats < <(git -C $dir status -s)
-
-  if [[ $stats ]]; then
-    printf "\n"
-    repo_clean=false
-    # print git status
-    for i in "${stats[@]}"; do
-      unstaged=${i:1:1}
-      if [[ $unstaged == " " ]]; then
-        printf "$spaces${_G}$i${_N}\n"
-      else
-        printf "$spaces${_R}$i${_N}\n"
-      fi
-    done
-  fi
+  [[ $stats ]] && repo_clean=false
 
   # if branch has been previously identified to have
   # no tracked remote branch, then skip the next step
   if [[ " ${status_only[*]} " =~ " ${dir} " ]]; then
     check_clean
+    print_status
     continue
   fi
 
-
   # git unpushed commits (requires a remote tracking branch)
   IFS=$'\n' read -r -d '' -a commits < <(git -C $dir cherry -v --abbrev)
-
-  if [[ $commits ]]; then
-    [[ $repo_clean == true ]] && printf "\n"
-    repo_clean=false
-    # print unpushed commits
-    for i in "${commits[@]}"; do
-      tag=${i%% *}
-      aftertag=${i#* }
-      commit=${aftertag%% *}
-      color_commit=${_Y}${commit}${_N}
-      aftercommit=${i#* }
-      post=${aftercommit#* }
-      printf "$spaces $tag $color_commit $post\n"
-    done
-  fi
+  [[ $commits ]] && repo_clean=false
 
   check_clean
+  print_status
+  print_commits
 
 done
 
