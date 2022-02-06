@@ -73,10 +73,26 @@ function filter_scanlist() {
 # to be ran just before continuing to the next iteration.
 function check_clean() {
   if [[ $repo_clean == true ]]; then
-    printf "${_G}ok:${_S} $short${_N}\n"
+    printf "${_G}ok${_S} $short${_N}\n"
   else
     printf "${_S}[${_N}$short${_S}]${_N}\n"
     all_repos_clean=false
+  fi
+}
+
+function short_summary() {
+  msg=""
+  if [[ $repo_clean == true ]]; then
+    printf "${_G}ok:${_S} $short${_N}\n"
+  else
+    all_repos_clean=false
+    [[ $has_stats == true ]] \
+      && msg+="S" \
+      || msg+=" "
+    [[ $has_commits == true ]] \
+      && msg+="C" \
+      || msg+=" "
+    printf "${_Y}$msg${_N} $short\n"
   fi
 }
 
@@ -120,28 +136,39 @@ function iterate_filtered() {
   all_repos_clean=true
   for dir in ${filterlist[@]}; do
     repo_clean=true
+    has_stats=false
+    has_commits=false
     short="${dir/$HOME/~}"
-
 
     # git status
     IFS=$'\n' read -r -d '' -a stats < <(git -C $dir status -s)
-    [[ $stats ]] && repo_clean=false
+    [[ $stats ]] && repo_clean=false && has_stats=true
 
     # if branch has been previously identified to have
     # no tracked remote branch, then skip the next step
     if [[ " ${status_only[*]} " =~ " ${dir} " ]]; then
-      check_clean
-      print_status
+      if [[ $SHORT == true && $stats ]]; then
+        # printf "print short status only\n"
+        short_summary
+      else
+        check_clean
+        print_status
+      fi
       continue
     fi
 
     # git unpushed commits (requires a remote tracking branch)
     IFS=$'\n' read -r -d '' -a commits < <(git -C $dir cherry -v --abbrev)
-    [[ $commits ]] && repo_clean=false
+    [[ $commits ]] && repo_clean=false && has_commits=true
 
-    check_clean
-    print_status
-    print_commits
+    if [[ $SHORT == true && ($commits || $stats) ]]; then
+      # printf "print short status + commit\n"
+      short_summary
+    else
+      check_clean
+      print_status
+      print_commits
+    fi
 
   done
 
