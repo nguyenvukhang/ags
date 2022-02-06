@@ -90,6 +90,9 @@ function check_clean() {
 }
 all_repos_clean=true
 
+indent=2
+spaces=$(printf "%-${indent}s")
+
 for dir in ${filterlist[@]}; do
   repo_clean=true
   short="${dir/$HOME/~}"
@@ -106,9 +109,9 @@ for dir in ${filterlist[@]}; do
     for i in "${stats[@]}"; do
       unstaged=${i:1:1}
       if [[ $unstaged == " " ]]; then
-        printf "${_G}$i${_N}\n"
+        printf "$spaces${_G}$i${_N}\n"
       else
-        printf "${_R}$i${_N}\n"
+        printf "$spaces${_R}$i${_N}\n"
       fi
     done
   fi
@@ -125,7 +128,7 @@ for dir in ${filterlist[@]}; do
   IFS=$'\n' read -r -d '' -a commits < <(git -C $dir cherry -v --abbrev)
 
   if [[ $commits ]]; then
-    printf "\n"
+    [[ $repo_clean == true ]] && printf "\n"
     repo_clean=false
     # print unpushed commits
     for i in "${commits[@]}"; do
@@ -135,7 +138,7 @@ for dir in ${filterlist[@]}; do
       color_commit=${_Y}${commit}${_N}
       aftercommit=${i#* }
       post=${aftercommit#* }
-      printf " $tag $color_commit $post\n"
+      printf "$spaces $tag $color_commit $post\n"
     done
   fi
 
