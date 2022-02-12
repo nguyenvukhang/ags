@@ -22,29 +22,30 @@ _S='\033[1;37m' # Gray (Soft)
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 SCRIPT_FILENAME="${0##*/}"
 TEST_DIR="test_root"
-R=$SCRIPT_DIR/$TEST_DIR
+TEST=$SCRIPT_DIR/$TEST_DIR
+ags=$SCRIPT_DIR/ags
 tree=false
 # execute this when script stops suddenly
 trap "rm -rf $SCRIPT_DIR/$TEST_DIR" EXIT
 
 function create_scanlist() {
-touch $R/scanlist
-cat <<EOF > $R/scanlist
-$R/alpha/one
-$R/alpha/two
-$R/alpha/three
-$R/alpha/four
+touch $TEST/scanlist
+cat <<EOF > $TEST/scanlist
+$TEST/alpha/one
+$TEST/alpha/two
+$TEST/alpha/three
+$TEST/alpha/four
 EOF
 }
 
 function test_prep() { # {{{
   # create test git repositories
-  mkdir -p $R/alpha/bravo/charlie/delta/echo/foxtrot
+  mkdir -p $TEST/alpha/bravo/charlie/delta/echo/foxtrot
 
   create_scanlist
 
-  mkdir $R/alpha/one
-  cd $R/alpha/one && git init >/dev/null
+  mkdir $TEST/alpha/one
+  cd $TEST/alpha/one && git init >/dev/null
 
   touch untracked_file
 
@@ -64,8 +65,8 @@ function test_prep() { # {{{
 
   echo $PWD && git status -s
 
-  mkdir $R/alpha/two
-  cd $R/alpha/two && git init >/dev/null
+  mkdir $TEST/alpha/two
+  cd $TEST/alpha/two && git init >/dev/null
 
   touch modified_file_modified
   echo "modified_file_deleted">modified_file_deleted
@@ -90,11 +91,11 @@ function test_prep() { # {{{
 
   echo $PWD && git status -s
 
-  mkdir $R/alpha/three.git
-  cd $R/alpha/three.git && git init --bare >/dev/null
+  mkdir $TEST/alpha/three.git
+  cd $TEST/alpha/three.git && git init --bare >/dev/null
 
-  mkdir $R/alpha/three
-  cd $R/alpha/three && git init >/dev/null
+  mkdir $TEST/alpha/three
+  cd $TEST/alpha/three && git init >/dev/null
 
   git remote add origin ../three.git
   touch gold
@@ -109,9 +110,9 @@ function test_prep() { # {{{
 
   echo $PWD && git status -s
 
-  cp -r $R/alpha/three.git $R/alpha/four.git
-  cp -r $R/alpha/three $R/alpha/four
-  cd $R/alpha/four
+  cp -r $TEST/alpha/three.git $TEST/alpha/four.git
+  cp -r $TEST/alpha/three $TEST/alpha/four
+  cd $TEST/alpha/four
   git remote set-url origin ../four.git
   git add --all
   git push --quiet >/dev/null
@@ -133,22 +134,22 @@ function check_output() {
   fi
 }
 
-res=$($SCRIPT_DIR/ags $R/wrong_scanlist)
+res=$($ags $TEST/wrong_scanlist)
 exp=$(cat<<EOF
-scanlist "$R/wrong_scanlist" not found
+scanlist "$TEST/wrong_scanlist" not found
 EOF)
 check_output "scanlist validity"
 
-# div "main" && $SCRIPT_DIR/ags $R/scanlist
+# div "main" && $SCRIPT_DIR/ags $TEST/scanlist
 
-# div "long 1" && $SCRIPT_DIR/ags -l $R/scanlist
+# div "long 1" && $SCRIPT_DIR/ags -l $TEST/scanlist
 
-# div "long 2" && $SCRIPT_DIR/ags $R/scanlist -l
+# div "long 2" && $SCRIPT_DIR/ags $TEST/scanlist -l
 
 if [[ $tree == true ]]; then
   plain_div
   title "TREE"
-  tree $R
+  tree $TEST
 fi
 
 plain_div
