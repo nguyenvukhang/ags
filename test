@@ -1,11 +1,29 @@
 #!/bin/bash
 
+# visual stuff {{{
+function div() {
+  printf "${_S}= ${_Y}AGS${_S} ($1)${_N}\n"
+}
+function plain_div() {
+  printf "${_S}========================================${_S}\n"
+}
+function title() {
+  printf "${_S}= ${_Y}$1${_S}${_N}\n"
+}
+_N='\033[0m'    # Normal
+_R='\033[0;31m' # Red
+_G='\033[0;32m' # Green
+_Y='\033[0;33m' # Yellow
+_B='\033[0;34m' # Blue
+_P='\033[0;35m' # Purple
+_C='\033[0;36m' # Cyan
+_S='\033[1;37m' # Gray (Soft)
+# }}}
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 SCRIPT_FILENAME="${0##*/}"
 TEST_DIR="test_root"
 R=$SCRIPT_DIR/$TEST_DIR
 tree=false
-
 # execute this when script stops suddenly
 trap "rm -rf $SCRIPT_DIR/$TEST_DIR" EXIT
 
@@ -19,8 +37,7 @@ $R/alpha/four
 EOF
 }
 
-function main() {
-
+function test_prep() { # {{{
   # create test git repositories
   mkdir -p $R/alpha/bravo/charlie/delta/echo/foxtrot
 
@@ -100,47 +117,38 @@ function main() {
   git push --quiet >/dev/null
 
   echo $PWD && git status -s
+} # }}}
+
+plain_div
+title "TEST_PREP"
+test_prep
+
+plain_div
+
+function check_output() {
+  if [[ $res == $exp ]]; then
+    printf "${_G}passed:${_N} $1\n"
+  else
+    printf "${_R}failed:${_N} $1\n"
+  fi
 }
 
-# final output {{{
+res=$($SCRIPT_DIR/ags $R/wrong_scanlist)
+exp=$(cat<<EOF
+scanlist "$R/wrong_scanlist" not found
+EOF)
+check_output "scanlist validity"
 
-function divider() {
-  printf "${_S}= ${_Y}AGS${_S} ($1)${_N}\n"
-}
-function plain_divider() {
-  printf "${_S}========================================${_S}\n"
-}
-function title() {
-  printf "${_S}= ${_Y}$1${_S}${_N}\n"
-}
+# div "main" && $SCRIPT_DIR/ags $R/scanlist
 
-_N='\033[0m'
-_Y='\033[0;33m'
-_S='\033[0;37m' # Gray (Soft)
+# div "long 1" && $SCRIPT_DIR/ags -l $R/scanlist
 
-plain_divider
-title "TEST"
-main
-
-plain_divider
-
-divider "wrong scanlist"
-$SCRIPT_DIR/ags $R/wrong_scanlist
-
-divider "main"
-$SCRIPT_DIR/ags $R/scanlist
-
-divider "long 1"
-$SCRIPT_DIR/ags -l $R/scanlist
-
-divider "long 2"
-$SCRIPT_DIR/ags $R/scanlist -l
+# div "long 2" && $SCRIPT_DIR/ags $R/scanlist -l
 
 if [[ $tree == true ]]; then
-  plain_divider
+  plain_div
   title "TREE"
   tree $R
 fi
 
-plain_divider
-# }}}
+plain_div
