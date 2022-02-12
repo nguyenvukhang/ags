@@ -5,11 +5,26 @@ your system. ags aims to eliminate the need to navigate to each
 repository root just to check for unstaged or uncommitted work.
 
 ### Documentation quick links
+* [Screenshots](#screenshots)
 * [Install](#install)
 * [Configuration](#configuration)
 * [Uninstall](#uninstall)
 
-![screenshot](https://raw.githubusercontent.com/wiki/nguyenvukhang/ags/images/screenshot.png)
+### Screenshots
+
+<details>
+<summary><code>ags</code></summary>
+
+![screenshot][ags]
+
+</details>
+
+<details>
+<summary><code>ags -l</code></summary>
+
+![screenshot][ags-l]
+
+</details>
 
 ### Install
 
@@ -48,3 +63,6 @@ To uninstall, execute the install script with a `-d` flag.
 ```
 ./install -d
 ```
+
+[ags]: https://raw.githubusercontent.com/wiki/nguyenvukhang/ags/images/ags.png
+[ags-l]: https://raw.githubusercontent.com/wiki/nguyenvukhang/ags/images/ags-l.png
