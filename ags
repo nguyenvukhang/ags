@@ -28,14 +28,14 @@ EOF
 }
 
 # colors and aesthetics
-_N='\033[0m'
-_R='\033[0;31m'
-_G='\033[0;32m'
-_Y='\033[0;33m'
-_B='\033[0;34m'
-_P='\033[0;35m'
-_C='\033[0;36m'
-_S='\033[0;37m' # Gray (Soft)
+_N='\033[0m'    # Normal
+_R='\033[0;31m' # Red
+_G='\033[0;32m' # Green
+_Y='\033[0;33m' # Yellow
+_B='\033[0;34m' # Blue
+_P='\033[0;35m' # Purple
+_C='\033[0;36m' # Cyan
+_S='\033[1;37m' # Gray (Soft)
 indent=2
 spaces=$(printf "%-${indent}s")
 
