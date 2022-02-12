@@ -190,6 +190,18 @@ function main() {
   iterate_filtered
 }
 
+function edit() {
+  if [ ! -z "$EDITOR" ]; then
+    $EDITOR $CONFIG
+  elif command -v nvim &> /dev/null; then
+    nvim $CONFIG
+  elif command -v vim &> /dev/null; then
+    vim $CONFIG
+  elif command -v nano &> /dev/null; then
+    nano $CONFIG
+  fi
+}
+
 # handle arguments
 function handle_arguments() {
   POSITIONAL_ARGS=()
@@ -199,7 +211,7 @@ function handle_arguments() {
         EDIT=true
         shift
         echo "open the config file with editor"
-        $EDITOR $CONFIG
+        edit
         exit 0
         ;;
       -h|--help)
