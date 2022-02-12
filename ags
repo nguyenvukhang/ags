@@ -1,9 +1,9 @@
 #!/bin/bash
 
-CONFIG="$HOME/.config/ags/scanlist"
+SCANLIST="$HOME/.config/ags/scanlist"
 
 
-function help_text() {
+function send_help_text() {
 cat <<EOF  
 ags scans the list of paths provided in ~/.config/ags/scanlist
 for git statuses and unpushed commits to the remote branch that's
@@ -44,7 +44,7 @@ function filter_scanlist() {
 
   # read the full scanlist from config file
   scanlist=()
-  while IFS= read -r line; do scanlist+=($line); done < "$CONFIG"
+  while IFS= read -r line; do scanlist+=($line); done < "$SCANLIST"
 
   filterlist=()
   status_only=()
@@ -54,10 +54,8 @@ function filter_scanlist() {
       if [[ -e $full/.git ]]; then
         if [[ $(git -C $full rev-parse --show-toplevel 2>/dev/null) = "$full" ]]; then
           filterlist+=($full)
-          [[ ${#full} -gt $max_len ]] && max_len=${#full}
           tracking=$(git -C $full status -sb)
-          if [[ $tracking != *"..."* ]]; then
-            # printf "${_Y}has no tracking branch:${_N} $i\n"
+          if [[ $tracking != *"..."* || $tracking == *"[gone]"* ]]; then
             status_only+=($full)
           fi
         else
@@ -72,6 +70,8 @@ function filter_scanlist() {
   done
 }
 
+# title meant for use in LONG_FORMAT.
+# prints before git status and git cherry
 function long_title() {
   if [[ $repo_clean == true ]]; then
     printf "${_G}ok${_S} $short${_N}\n"
@@ -81,6 +81,10 @@ function long_title() {
   fi
 }
 
+# one-liner summary of git repository
+# S: denotes unstaged files
+# C: denotes unpushed commits
+# ok: repo is clean
 function short_summary() {
   msg=""
   if [[ $repo_clean == false ]]; then
@@ -92,45 +96,32 @@ function short_summary() {
       && msg+="C" \
       || msg+=" "
     printf "${_Y}$msg${_N} $short\n"
+  else
+    printf "${_G}ok${_N} $short\n"
   fi
 }
 
-function print_status() {
-  if [[ $stats ]]; then
-    repo_clean=false
-    # print git status
-    for i in "${stats[@]}"; do
-      unstaged=${i:1:1}
-      if [[ $unstaged == " " ]]; then
-        printf "$spaces${_G}$i${_N}\n"
-      else
-        printf "$spaces${_R}$i${_N}\n"
-      fi
-    done
-  fi
-}
-
-function print_commits() {
-  if [[ $commits ]]; then
-    repo_clean=false
-    # print unpushed commits
-    for i in "${commits[@]}"; do
-      tag=${i%% *}
-      aftertag=${i#* }
-      commit=${aftertag%% *}
-      color_commit=${_Y}${commit}${_N}
-      aftercommit=${i#* }
-      post=${aftercommit#* }
-      printf " $tag $color_commit $post\n"
-    done
-  fi
+# if there are unpushed commits, then print those
+# and declare that the current repo is not clean
+function handle_commits() {
+  # cancel if there are no unpushed commits
+  [[ -z $commits ]] && return
+  # print unpushed commits
+  for i in "${commits[@]}"; do
+    tag=${i%% *}
+    aftertag=${i#* }
+    commit=${aftertag%% *}
+    color_commit=${_Y}${commit}${_N}
+    aftercommit=${i#* }
+    post=${aftercommit#* }
+    printf " $tag $color_commit $post\n"
+  done
 }
 
 # operate on the filtered list
 # for each repository, check for:
 #   1. git status
 #   2. commits yet to be pushed to currently tracked branch
-
 function iterate_filtered() {
   all_repos_clean=true
   for dir in ${filterlist[@]}; do
@@ -147,6 +138,7 @@ function iterate_filtered() {
     # if branch has been previously identified to have
     # no tracked remote branch, then skip the next step
     if [[ " ${status_only[*]} " =~ " ${dir} " ]]; then
+      # handle output (status only)
       if [[ $LONG_FORMAT == true ]]; then
         long_title
         [[ $stats ]] && git -C $dir status -s
@@ -160,90 +152,72 @@ function iterate_filtered() {
     IFS=$'\n' read -r -d '' -a commits < <(git -C $dir cherry -v --abbrev)
     [[ $commits ]] && repo_clean=false && has_commits=true
 
+    # handle output (status and commits)
     if [[ $LONG_FORMAT == true ]]; then
       long_title
       [[ $stats ]] && git -C $dir status -s
-      [[ $commits ]] && print_commits
+      handle_commits
     else
       short_summary
     fi
-
   done
 
+  # if all repos are clean, then print an affirmative message
   if [[ $all_repos_clean == true ]]; then
     printf "\n${_G}all repos clean!${_N}\n"
   fi
 }
 
-# create scan list
-# TODO: create a system-wide repo scanner
-function main() {
-  filter_scanlist
-  iterate_filtered
-}
-
-function edit() {
+function run_edit() {
   if [ ! -z "$EDITOR" ]; then
-    $EDITOR $CONFIG
+    $EDITOR $SCANLIST
   elif command -v nvim &> /dev/null; then
-    nvim $CONFIG
+    nvim $SCANLIST
   elif command -v vim &> /dev/null; then
-    vim $CONFIG
+    vim $SCANLIST
   elif command -v nano &> /dev/null; then
-    nano $CONFIG
+    nano $SCANLIST
   fi
 }
 
-# handle arguments
 function handle_arguments() {
   POSITIONAL_ARGS=()
   while [[ $# -gt 0 ]]; do
     case $1 in
       -e|--edit)
-        EDIT=true
-        shift
-        echo "open the config file with editor"
-        edit
-        exit 0
-        ;;
+        shift; run_edit; exit 0;;
       -h|--help)
-        HELP=true
-        shift # past argument
-        help_text
-        exit 0
-        ;;
+        shift; send_help_text; exit 0;;
       -l)
-        LONG_FORMAT=true
-        shift # past argument
-        ;;
+        LONG_FORMAT=true; shift;;
       -*|--*)
-        echo "Unknown option $1"
-        exit 1
-        ;;
+        echo "Unknown option $1"; exit 1;;
       *)
-        POSITIONAL_ARGS+=("$1") # save positional arg
-        shift # past argument
-        ;;
+        POSITIONAL_ARGS+=("$1"); shift;;
     esac
   done
 
-  # only continue execution if there are no positional arguments
   if [[ ${#POSITIONAL_ARGS[@]} -ne 0 ]]; then
-    exrc="${POSITIONAL_ARGS[0]}"
-    if [ -f $exrc ]; then
-      CONFIG=$exrc
-    else
-      printf "scanlist not found\n"
-      exit 1
-    fi
+    # if more than one positional argument is supplied,
+    # cancel execution and send help text
     if [[ ${#POSITIONAL_ARGS[@]} -gt 1 ]]; then
       printf "Multiple positional arguments are currently unsupported.\n"
-      help_text
+      send_help_text
       exit 0
+    fi
+    # if a valid file is supplied as the first positional argument,
+    # then use it instead of the default ~/.config/ags/scanlist
+    SCAN_THIS="${POSITIONAL_ARGS[0]}"
+    if [ -f $SCAN_THIS ]; then
+      SCANLIST=$SCAN_THIS
+    else
+      printf "scanlist \"${SCAN_THIS}\" not found\n"
+      exit 1
     fi
   fi
 }
 
 # main flow
 handle_arguments "$@"
-main
+filter_scanlist
+iterate_filtered
