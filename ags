@@ -75,21 +75,18 @@ function filter_scanlist() {
   done
 }
 
-# to be ran just before continuing to the next iteration.
-function print_title() {
+function long_title() {
   if [[ $repo_clean == true ]]; then
     printf "${_G}ok${_S} $short${_N}\n"
   else
-    printf "${_S}[${_N}$short${_S}]${_N}\n"
+    printf "${_S}$short${_N}\n"
     all_repos_clean=false
   fi
 }
 
 function short_summary() {
   msg=""
-  if [[ $repo_clean == true ]]; then
-    printf "${_G}ok:${_S} $short${_N}\n"
-  else
+  if [[ $repo_clean == false ]]; then
     all_repos_clean=false
     [[ $has_stats == true ]] \
       && msg+="S" \
@@ -153,9 +150,9 @@ function iterate_filtered() {
     # if branch has been previously identified to have
     # no tracked remote branch, then skip the next step
     if [[ " ${status_only[*]} " =~ " ${dir} " ]]; then
-      if [[ $VERBOSE == true && $stats ]]; then
-        print_title
-        git -C $dir status -s
+      if [[ $LONG_FORMAT == true ]]; then
+        long_title
+        [[ $stats ]] && git -C $dir status -s
       else
         short_summary
       fi
@@ -166,14 +163,12 @@ function iterate_filtered() {
     IFS=$'\n' read -r -d '' -a commits < <(git -C $dir cherry -v --abbrev)
     [[ $commits ]] && repo_clean=false && has_commits=true
 
-    if [[ $commits || $stats ]]; then
-      if [[ $VERBOSE == true ]]; then
-        print_title
-        git -C $dir status -s
-        print_commits
-      else
-        short_summary
-      fi
+    if [[ $LONG_FORMAT == true ]]; then
+      long_title
+      [[ $stats ]] && git -C $dir status -s
+      [[ $commits ]] && print_commits
+    else
+      short_summary
     fi
 
   done
@@ -220,8 +215,8 @@ function handle_arguments() {
         help_text
         exit 0
         ;;
-      -v|--verbose)
-        VERBOSE=true
+      -l)
+        LONG_FORMAT=true
         shift # past argument
         ;;
       -*|--*)
