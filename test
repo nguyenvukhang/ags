@@ -130,6 +130,12 @@ $SCRIPT_DIR/ags $R/wrong_scanlist
 divider "main"
 $SCRIPT_DIR/ags $R/scanlist
 
+divider "long 1"
+$SCRIPT_DIR/ags -l $R/scanlist
+
+divider "long 2"
+$SCRIPT_DIR/ags $R/scanlist -l
+
 if [[ $tree == true ]]; then
   plain_divider
   title "TREE"
