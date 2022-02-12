@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# visual stuff {{{
+# definitions/functions {{{
 function div() {
   printf "${_S}= ${_Y}AGS${_S} ($1)${_N}\n"
 }
@@ -9,6 +9,30 @@ function plain_div() {
 }
 function title() {
   printf "${_S}= ${_Y}$1${_S}${_N}\n"
+}
+function check_output() {
+  local all_ok=true
+  for i in "${!res[@]}"; do
+    a="${res[i]}"
+    b="${exp[i]}"
+    [[ $b == "skip_check" ]] && continue
+    # char by char diffing
+    if [[ "$a" != "$b" ]]; then
+      printf "$a\n$b\n"
+      diff <(printf "$a") <(printf "$b") | colordiff
+      printf "${_G}CHAR BY CHAR TIME${_N}\n"
+      for (( j=0; j<20; j++ )); do echo "${a:$j:1} ... ${b:$j:1}"; done
+      all_ok=false
+      break
+    # else
+    #   printf "${_G}passed line:${_N} $b\n"
+    fi
+  done
+  if [[ $all_ok == true ]]; then
+    printf "${_G}passed:${_N} $1\n"
+  else
+    printf "${_R}failed:${_N} $1\n"
+  fi
 }
 _N='\033[0m'    # Normal
 _R='\033[0;31m' # Red
@@ -37,7 +61,6 @@ $TEST/alpha/three
 $TEST/alpha/four
 EOF
 }
-
 function test_prep() { # {{{
   # create test git repositories
   mkdir -p $TEST/alpha/bravo/charlie/delta/echo/foxtrot
@@ -120,31 +143,49 @@ function test_prep() { # {{{
   echo $PWD && git status -s
 } # }}}
 
-plain_div
-title "TEST_PREP"
-test_prep
+plain_div && title "TEST PREP" && test_prep
 
 plain_div
 
-function check_output() {
-  if [[ $res == $exp ]]; then
-    printf "${_G}passed:${_N} $1\n"
-  else
-    printf "${_R}failed:${_N} $1\n"
-  fi
-}
-
+# test 1: scanlist validity
 res=$($ags $TEST/wrong_scanlist)
-exp=$(cat<<EOF
-scanlist "$TEST/wrong_scanlist" not found
-EOF)
-check_output "scanlist validity"
+exp=("scanlist \"$TEST/wrong_scanlist\" not found")
+check_output "ags <invalid scanlist>"
 
-# div "main" && $SCRIPT_DIR/ags $TEST/scanlist
+# test 2: ags default settings
+res=()
+while IFS= read -r line; do res+=("$line"); done < <($ags $TEST/scanlist)
+exp=(); exp_arr=(
+"${_Y}S ${_N} ~/repos/ags/test_root/alpha/one"
+"${_Y}S ${_N} ~/repos/ags/test_root/alpha/two"
+"${_Y} C${_N} ~/repos/ags/test_root/alpha/three"
+"${_G}ok${_N} ~/repos/ags/test_root/alpha/four"
+)
+while IFS= read -r line; do exp+=("$line")
+done < <(for i in "${exp_arr[@]}"; do printf "$i\n"; done)
+check_output "ags"
 
-# div "long 1" && $SCRIPT_DIR/ags -l $TEST/scanlist
-
-# div "long 2" && $SCRIPT_DIR/ags $TEST/scanlist -l
+# test 3: ags long format
+res=()
+while IFS= read -r line; do res+=("$line"); done < <($ags -l $TEST/scanlist)
+exp=(); exp_arr=(
+"${_S}~/repos/ags/test_root/alpha/one${_N}"
+"D  staged_deletion"
+"A  staged_file"
+" D untracked_deletion"
+"?? untracked_file"
+"${_S}~/repos/ags/test_root/alpha/two${_N}"
+"MD modified_file_deleted"
+"MM modified_file_modified"
+"AD new_file_deleted"
+"AM new_file_modified"
+"${_S}~/repos/ags/test_root/alpha/three${_N}"
+"skip_check" # this one has a unique commit id each time
+"${_G}ok${_S} ~/repos/ags/test_root/alpha/four${_N}"
+)
+while IFS= read -r line; do exp+=("$line")
+done < <(for i in "${exp_arr[@]}"; do printf "$i\n"; done)
+check_output "ags -l"
 
 if [[ $tree == true ]]; then
   plain_div
