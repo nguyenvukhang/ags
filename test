@@ -150,8 +150,6 @@ function wrap_prep() {
 
 wrap_prep >/dev/null
 
-plain_div
-
 # test 1: scanlist validity
 res=$($ags $TEST/wrong_scanlist)
 exp=("scanlist \"$TEST/wrong_scanlist\" not found")
@@ -197,5 +195,3 @@ if [[ $tree == true ]]; then
   title "TREE"
   tree $TEST
 fi
-
-plain_div
