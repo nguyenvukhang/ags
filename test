@@ -143,7 +143,12 @@ function test_prep() { # {{{
   echo $PWD && git status -s
 } # }}}
 
-plain_div && title "TEST PREP" && test_prep
+
+function wrap_prep() {
+  plain_div && title "TEST PREP" && test_prep
+}
+
+wrap_prep >/dev/null
 
 plain_div
 
