@@ -47,8 +47,7 @@ Here's what I used for the screenshot:
 ~/dots
 ~/dots/personal
 
-~/repos/cal
-~/repos/gcal
+~/repos/ags
 ~/repos/min
 ~/repos/minnesoda
 ~/repos/notes
