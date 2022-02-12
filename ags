@@ -5,25 +5,22 @@ CONFIG="$HOME/.config/ags/scanlist"
 
 function help_text() {
 cat <<EOF  
-
-all-git-status (ags) scans the list of paths provided in
-~/.config/ags/scanlist for git statuses and unpushed commits to
-the remote branch that's currently tracked.
+ags scans the list of paths provided in ~/.config/ags/scanlist
+for git statuses and unpushed commits to the remote branch that's
+currently tracked.
 
 USAGE:
-    ags [OPTIONS] [SCANFILE]
+    ags [OPTIONS]
 
-POSITIONAL ARGUMENTS
-   SCANFILE
-       A file containing a list of directories to scan through.
-       If left blank, it defaults to ~/.config/ags/scanlist.
+OPTIONS
+    -h, --help
+          Prints help information. Use --help for more details.
+          For more information, run \`man ags\`.
 
-OPTIONS:
-    -h, --help          Prints help information.
-                        Use --help for more details.
-    -e, --edit          Opens default scanlist with \$EDITOR.
-    -v, --verbose       Prints more details about each repository.
+    -l    Prints more details about each repository.
 
+    -e, --edit
+          Opens default scanlist with $EDITOR.
 EOF
 }
 
