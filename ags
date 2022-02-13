@@ -33,47 +33,33 @@ _B='\033[0;34m' # Blue
 _P='\033[0;35m' # Purple
 _C='\033[0;36m' # Cyan
 _S='\033[1;37m' # Gray (Soft)
-indent=2
-spaces=$(printf "%-${indent}s")
 
-function filter_scanlist() {
-  # filter through scanlist to check if paths are valid git repositories
-  # only accept directories which:
-  #   1. exists
-  #   2. are at the root of the git repository they are in
+function check_repository() {
+  function err_msg() {
+    printf "${_R}!!${_N} $line ${_Y}($1)${_N}"
+  }
+  # check if directory exists
+  if [[ ! -d $dir ]]; then
+    err_msg "invalid directory"; return 1
+  fi
 
-  # read the full scanlist from config file
-  scanlist=()
-  while IFS= read -r line; do scanlist+=($line); done < "$SCANLIST"
+  # check if there is a .git folder/file in that directory
+  if [[ ! -e $dir/.git ]]; then
+    err_msg "not a git repository"; return 1
+  fi
 
-  filterlist=()
-  status_only=()
-  for i in ${scanlist[@]}; do
-    full=${i/\~/$HOME}
-    if [[ -d $full ]]; then
-      if [[ -e $full/.git ]]; then
-        if [[ $(git -C $full rev-parse --show-toplevel 2>/dev/null) = "$full" ]]; then
-          filterlist+=($full)
-          tracking=$(git -C $full status -sb)
-          if [[ $tracking != *"..."* || $tracking == *"[gone]"* ]]; then
-            status_only+=($full)
-          fi
-        else
-          printf "${_Y}not at git root:${_N} $i\n"
-        fi
-      else
-        printf "${_Y}not a git repo:${_N} $i\n"
-      fi
-    else
-      printf "${_Y}invalid directory:${_N} $i\n"
-    fi
-  done
+  # double-check if that directory is the root of its git repository
+  if [[ ! $(git -C $dir rev-parse --show-toplevel 2>/dev/null) = "$dir" ]]; then
+    err_msg "not at git root"; return 1
+  fi
+
+  return 0
 }
 
 # title meant for use in LONG_FORMAT.
 # prints before git status and git cherry
 function long_title() {
-  if [[ $repo_clean == true ]]; then
+  if [[ "$repo_clean" == true ]]; then
     printf "${_G}ok${_S} $short${_N}\n"
   else
     printf "${_S}$short${_N}\n"
@@ -87,12 +73,12 @@ function long_title() {
 # ok: repo is clean
 function short_summary() {
   msg=""
-  if [[ $repo_clean == false ]]; then
+  if [[ "$repo_clean" == false ]]; then
     all_repos_clean=false
-    [[ $has_stats == true ]] \
+    [[ "$has_stats" == true ]] \
       && msg+="S" \
       || msg+=" "
-    [[ $has_commits == true ]] \
+    [[ "$has_commits" == true ]] \
       && msg+="C" \
       || msg+=" "
     printf "${_Y}$msg${_N} $short\n"
@@ -118,13 +104,32 @@ function handle_commits() {
   done
 }
 
+function get_scanlist() {
+  # read the scanlist
+  while IFS= read -r line; do scanlist+=($line); done < "$SCANLIST"
+}
+
 # operate on the filtered list
 # for each repository, check for:
 #   1. git status
 #   2. commits yet to be pushed to currently tracked branch
 function iterate_filtered() {
   all_repos_clean=true
-  for dir in ${filterlist[@]}; do
+  local scanlist=(); get_scanlist
+  for line in "${scanlist[@]}"; do
+    dir=${line/\~/$HOME}
+
+    # check for validity of the repo.
+    # if return value of check_repository is 1 (has error),
+    # then skip iteration
+    err=$(check_repository)
+    if [[ $? = 1 ]]; then
+      [[ "$LONG_FORMAT" == true ]] \
+        && printf "$err\n" \
+        || printf "${_R}!!${_N} $line\n"
+      continue
+    fi
+
     repo_clean=true
     has_stats=false
     has_commits=false
@@ -135,11 +140,13 @@ function iterate_filtered() {
     stats=$(git -C $dir status -s)
     [[ $stats ]] && repo_clean=false && has_stats=true
 
-    # if branch has been previously identified to have
-    # no tracked remote branch, then skip the next step
-    if [[ " ${status_only[*]} " =~ " ${dir} " ]]; then
+    # if branch has no tracked remote branch, then print the output
+    # don't move on to printing unpushed commits, since there's no
+    # remote to compare with.
+    local tracking=$(git -C $dir status -sb)
+    if [[ $tracking != *"..."* || $tracking == *"[gone]"* ]]; then
       # handle output (status only)
-      if [[ $LONG_FORMAT == true ]]; then
+      if [[ "$LONG_FORMAT" == true ]]; then
         long_title
         [[ $stats ]] && git -C $dir status -s
       else
@@ -153,7 +160,7 @@ function iterate_filtered() {
     [[ $commits ]] && repo_clean=false && has_commits=true
 
     # handle output (status and commits)
-    if [[ $LONG_FORMAT == true ]]; then
+    if [[ "$LONG_FORMAT" == true ]]; then
       long_title
       [[ $stats ]] && git -C $dir status -s
       handle_commits
@@ -163,7 +170,7 @@ function iterate_filtered() {
   done
 
   # if all repos are clean, then print an affirmative message
-  if [[ $all_repos_clean == true ]]; then
+  if [[ "$all_repos_clean" == true ]]; then
     printf "\n${_G}all repos clean!${_N}\n"
   fi
 }
@@ -219,5 +226,4 @@ function handle_arguments() {
 
 # main flow
 handle_arguments "$@"
-filter_scanlist
 iterate_filtered
