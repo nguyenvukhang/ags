@@ -1,26 +1,61 @@
 .\" Manpage for ags.
 .\" Contact brew4k@gmail.com to correct errors or typos.
 .TH man 1 "06 Feb 2022" "1.0" "ags man page"
-.SH NAME
+.SH "NAME"
 ags \- all (the) git statuses
-.SH SYNOPSIS
+.SH "SYNOPSIS"
 ags [OPTIONS] [SCANFILE]
-.SH DESCRIPTION
+.SH "DESCRIPTION"
 ags scans the list of paths provided in ~/.config/ags/scanlist for git
 statuses and unpushed commits to the remote branch that's currently tracked.
 .SH POSITIONAL ARGUMENTS
 .TP
-.I SCANFILE
+.I "SCANFILE"
 A file containing a list of git repository paths to scan. If
 unspecified, ags will default back to using ~/.config/ags/scanlist
 .SH OPTIONS
 .IP -h,\ --help
 Prints help information. Use --help for more details.
 .IP -l
-Prints more details about each repository.
+Prints more details about each repository. (see Long Format)
 .IP -e,\ --edit
 Opens default scanlist with $EDITOR.
-.SH HOMEPAGE
+.SH "OUTPUT"
+.SS "Short Format" (default)
+.sp
+In the short\-format, there is one line of output per line supplied in
+SCANFILE. The details of each git repository is shown in the first two
+characters of its line.
+.sp
+.nf
+Prefix    Meaning
+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+ok        repository is clean and synced with remote
+!!        repository path is invalid
+S         git status has outputs (unstaged changes)
+ C        git cherry has outputs (unpushed commits)
+SC        both git status and git cherry have outputs
+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+.SS "Long Format"
+.sp
+In the long\-format, the path is printed first. If it's fully clean or invalid,
+it will have a two-character prefix:
+.sp
+.nf
+Prefix    Meaning
+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+ok        repository is clean and synced with remote
+!!        repository path is invalid
+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
+.sp
+If the git repository is valid but contains unstaged changes or unpushed
+commits, the outputs of:
+.sp
+$ git status -s             # unstaged changes
+$ git cherry -v --abbrev    # unpushed commits
+.sp
+will be displayed below the path to that repository.
+.SH "HOMEPAGE"
 <https://github.com/nguyenvukhang/ags>
-.SH AUTHORS
+.SH "AUTHORS"
 Nguyen Vu Khang  <brew4k@gmail.com>
