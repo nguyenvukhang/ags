@@ -24,11 +24,23 @@ if [[ $uninstall == false ]]; then
   # install man page
   gzip --keep ags.1
   sudo mv ags.1.gz /usr/local/share/man/man1
+  if [[ -f $AGSFILE && -f $MANFILE ]]; then
+    printf "Installation successful.\n"
+    exit 0
+  else
+    printf "Installation incomplete.\n"
+    printf "Please re-run uninstallation script.\n"
+  fi
 else
   # uninstall ags
   [ -f $AGSFILE ] && sudo rm $AGSFILE
   # uninstall man page
   [ -f $MANFILE ] && sudo rm $MANFILE
+  if [[ ! -f $AGSFILE && ! -f $MANFILE ]]; then
+    printf "Uninstallation successful.\n"
+    exit 0
+  else
+    printf "Some residual files remain.\n"
+    printf "Please re-run uninstallation script.\n"
+  fi
 fi
-
-exit 0
