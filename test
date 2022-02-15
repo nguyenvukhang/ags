@@ -11,10 +11,11 @@ function title() {
   printf "${_S}= ${_Y}$1${_S}${_N}\n"
 }
 function check_output() {
+  [[ "$output_only" == true ]] && return
   local all_ok=true
-  for i in "${!res[@]}"; do
-    a="${res[i]}"
-    b="${exp[i]}"
+  for i in "${!output[@]}"; do
+    a="${output[i]}"
+    b="${expect[i]}"
     [[ $b == "skip_check" ]] && continue
     # char by char diffing
     if [[ "$a" != "$b" ]]; then
@@ -29,9 +30,9 @@ function check_output() {
     fi
   done
   if [[ $all_ok == true ]]; then
-    printf "${_G}passed:${_N} $1\n"
+    printf "${_G}passed:${_N} $1\n\n"
   else
-    printf "${_R}failed:${_N} $1\n"
+    printf "${_R}failed:${_N} $1\n\n"
   fi
 }
 _N='\033[0m'    # Normal
@@ -51,6 +52,18 @@ ags=$SCRIPT_DIR/ags
 tree=false
 # execute this when script stops suddenly
 trap "rm -rf $SCRIPT_DIR/$TEST_DIR" EXIT
+
+# handle arguments
+#  -s for short
+short=false
+output_only=false
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -s) short=true; shift;;
+    -o) output_only=true; shift;;
+    *|-*|--*) echo "Unknown option $1"; exit 1;;
+  esac
+done
 
 function create_scanlist() {
 touch $TEST/scanlist
@@ -147,31 +160,39 @@ function test_prep() { # {{{
 function wrap_prep() {
   plain_div && title "TEST PREP" && test_prep
 }
+function get_output() {
+  # first argument is command to run
+  [[ "$short" == false ]] && $1
+  output=()
+  while IFS= read -r line; do output+=("$line"); done < <($1)
+}
+function get_expect() {
+  # requires a populated expect_arr
+  expect=()
+  while IFS= read -r line; do expect+=("$line")
+  done < <(for i in "${expect_arr[@]}"; do printf "$i\n"; done)
+}
 
 wrap_prep >/dev/null
 
 # test 1: scanlist validity
-res=$($ags $TEST/wrong_scanlist)
-exp=("scanlist \"$TEST/wrong_scanlist\" not found")
+get_output "$ags $TEST/wrong_scanlist"
+expect=("scanlist \"$TEST/wrong_scanlist\" not found")
 check_output "ags <invalid scanlist>"
 
 # test 2: ags default settings
-res=()
-while IFS= read -r line; do res+=("$line"); done < <($ags $TEST/scanlist)
-exp=(); exp_arr=(
+get_output "$ags $TEST/scanlist"
+expect_arr=(
 "${_Y}S ${_N} ~/repos/ags/test_root/alpha/one"
 "${_Y}S ${_N} ~/repos/ags/test_root/alpha/two"
 "${_Y} C${_N} ~/repos/ags/test_root/alpha/three"
 "${_G}ok${_N} ~/repos/ags/test_root/alpha/four"
-)
-while IFS= read -r line; do exp+=("$line")
-done < <(for i in "${exp_arr[@]}"; do printf "$i\n"; done)
+); get_expect
 check_output "ags"
 
 # test 3: ags long format
-res=()
-while IFS= read -r line; do res+=("$line"); done < <($ags -l $TEST/scanlist)
-exp=(); exp_arr=(
+get_output "$ags -l $TEST/scanlist"
+expect_arr=(
 "${_S}~/repos/ags/test_root/alpha/one${_N}"
 "D  staged_deletion"
 "A  staged_file"
@@ -185,9 +206,7 @@ exp=(); exp_arr=(
 "${_S}~/repos/ags/test_root/alpha/three${_N}"
 "skip_check" # this one has a unique commit id each time
 "${_G}ok${_S} ~/repos/ags/test_root/alpha/four${_N}"
-)
-while IFS= read -r line; do exp+=("$line")
-done < <(for i in "${exp_arr[@]}"; do printf "$i\n"; done)
+); get_expect;
 check_output "ags -l"
 
 if [[ $tree == true ]]; then
