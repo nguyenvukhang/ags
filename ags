@@ -36,7 +36,7 @@ _S='\033[1;37m' # Gray (Soft)
 
 function check_repository() {
   function err_msg() {
-    printf "${_R}!!${_N} $line ${_Y}($1)${_N}"
+    printf "${_R}!!${_N} $short ${_Y}($1)${_N}"
   }
   # check if directory exists
   if [[ ! -d $dir ]]; then
@@ -118,6 +118,7 @@ function iterate_filtered() {
   local scanlist=(); get_scanlist
   for line in "${scanlist[@]}"; do
     dir=${line/\~/$HOME}
+    short="${dir/$HOME/~}"
 
     # check for validity of the repo.
     # if return value of check_repository is 1 (has error),
@@ -126,14 +127,13 @@ function iterate_filtered() {
     if [[ $? = 1 ]]; then
       [[ "$LONG_FORMAT" == true ]] \
         && printf "$err\n" \
-        || printf "${_R}!!${_N} $line\n"
+        || printf "${_R}!!${_N} $short\n"
       continue
     fi
 
     repo_clean=true
     has_stats=false
     has_commits=false
-    short="${dir/$HOME/~}"
 
     # git status
     # IFS=$'\n' read -r -d '' -a stats < <(git -C $dir status -s)

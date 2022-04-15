@@ -11,6 +11,12 @@ function title() {
   printf "${_S}= ${_Y}$1${_S}${_N}\n"
 }
 function check_output() {
+  # compile expect to compare with output
+  expect=()
+  while IFS= read -r line; do expect+=("$line")
+  done < <(for i in "${get_expect[@]}"; do printf "$i\n"; done)
+
+  # actually check output
   [[ "$output_only" == true ]] && return
   local all_ok=true
   for i in "${!output[@]}"; do
@@ -27,12 +33,13 @@ function check_output() {
       break
     # else
     #   printf "${_G}passed line:${_N} $b\n"
+    #
     fi
   done
   if [[ $all_ok == true ]]; then
-    printf "${_G}passed:${_N} $1\n\n"
+    printf "${_G}passed:${_C} $1\n\n${_N}"; return 0
   else
-    printf "${_R}failed:${_N} $1\n\n"
+    printf "${_R}failed:${_C} $1\n\n${_N}"; exit 1
   fi
 }
 _N='\033[0m'    # Normal
@@ -44,17 +51,16 @@ _P='\033[0;35m' # Purple
 _C='\033[0;36m' # Cyan
 _S='\033[1;37m' # Gray (Soft)
 # }}}
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-SCRIPT_FILENAME="${0##*/}"
-TEST_DIR="test_root"
-TEST=$SCRIPT_DIR/$TEST_DIR
-ags=$SCRIPT_DIR/ags
+CWD="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+TESTDIR=$CWD/test_root
+ags=$CWD/ags
 tree=false
 # execute this when script stops suddenly
-trap "rm -rf $SCRIPT_DIR/$TEST_DIR" EXIT
+trap "rm -rf $TESTDIR" EXIT
 
 # handle arguments
 #  -s for short
+#  -o for output only
 short=false
 output_only=false
 while [[ $# -gt 0 ]]; do
@@ -66,22 +72,24 @@ while [[ $# -gt 0 ]]; do
 done
 
 function create_scanlist() {
-touch $TEST/scanlist
-cat <<EOF > $TEST/scanlist
-$TEST/alpha/one
-$TEST/alpha/two
-$TEST/alpha/three
-$TEST/alpha/four
+touch $TESTDIR/scanlist
+cat <<EOF > $TESTDIR/scanlist
+$TESTDIR/alpha/one
+$TESTDIR/alpha/two
+$TESTDIR/alpha/three
+$TESTDIR/alpha/four
+$TESTDIR/alpha/five
 EOF
 }
 function test_prep() { # {{{
   # create test git repositories
-  mkdir -p $TEST/alpha/bravo/charlie/delta/echo/foxtrot
-
+  mkdir -p $TESTDIR/alpha/bravo/charlie/delta/echo/foxtrot
   create_scanlist
 
-  mkdir $TEST/alpha/one
-  cd $TEST/alpha/one && git init >/dev/null
+  # /alpha/one
+
+  mkdir $TESTDIR/alpha/one
+  cd $TESTDIR/alpha/one && git init >/dev/null
 
   touch untracked_file
 
@@ -101,8 +109,10 @@ function test_prep() { # {{{
 
   echo $PWD && git status -s
 
-  mkdir $TEST/alpha/two
-  cd $TEST/alpha/two && git init >/dev/null
+  # /alpha/two
+
+  mkdir $TESTDIR/alpha/two
+  cd $TESTDIR/alpha/two && git init >/dev/null
 
   touch modified_file_modified
   echo "modified_file_deleted">modified_file_deleted
@@ -127,11 +137,13 @@ function test_prep() { # {{{
 
   echo $PWD && git status -s
 
-  mkdir $TEST/alpha/three.git
-  cd $TEST/alpha/three.git && git init --bare >/dev/null
+  # /alpha/three
 
-  mkdir $TEST/alpha/three
-  cd $TEST/alpha/three && git init >/dev/null
+  mkdir $TESTDIR/alpha/three.git
+  cd $TESTDIR/alpha/three.git && git init --bare >/dev/null
+
+  mkdir $TESTDIR/alpha/three
+  cd $TESTDIR/alpha/three && git init >/dev/null
 
   git remote add origin ../three.git
   touch gold
@@ -146,9 +158,11 @@ function test_prep() { # {{{
 
   echo $PWD && git status -s
 
-  cp -r $TEST/alpha/three.git $TEST/alpha/four.git
-  cp -r $TEST/alpha/three $TEST/alpha/four
-  cd $TEST/alpha/four
+  # /alpha/four
+
+  cp -r $TESTDIR/alpha/three.git $TESTDIR/alpha/four.git
+  cp -r $TESTDIR/alpha/three $TESTDIR/alpha/four
+  cd $TESTDIR/alpha/four
   git remote set-url origin ../four.git
   git add --all
   git push --quiet >/dev/null
@@ -158,59 +172,69 @@ function test_prep() { # {{{
 
 
 function wrap_prep() {
-  plain_div && title "TEST PREP" && test_prep
+  plain_div && title "TESTDIR PREP" && test_prep
 }
 function get_output() {
   # first argument is command to run
-  [[ "$short" == false ]] && $1
+  if [[ "$short" == false ]]; then
+    printf "${_C}------- actual output -------${_N}\n"
+    $1
+    printf "${_C}-----------------------------${_N}\n"
+  fi
   output=()
   while IFS= read -r line; do output+=("$line"); done < <($1)
-}
-function get_expect() {
-  # requires a populated expect_arr
-  expect=()
-  while IFS= read -r line; do expect+=("$line")
-  done < <(for i in "${expect_arr[@]}"; do printf "$i\n"; done)
 }
 
 wrap_prep >/dev/null
 
-# test 1: scanlist validity
-get_output "$ags $TEST/wrong_scanlist"
-expect=("scanlist \"$TEST/wrong_scanlist\" not found")
-check_output "ags <invalid scanlist>"
+# scanlist validity
+function test1() {
+  get_output "$ags $TESTDIR/wrong_scanlist"
+  get_expect=("scanlist \"$TESTDIR/wrong_scanlist\" not found")
+  check_output "ags <invalid scanlist>"
+}
 
-# test 2: ags default settings
-get_output "$ags $TEST/scanlist"
-expect_arr=(
-"${_Y}S ${_N} ~/repos/ags/test_root/alpha/one"
-"${_Y}S ${_N} ~/repos/ags/test_root/alpha/two"
-"${_Y} C${_N} ~/repos/ags/test_root/alpha/three"
-"${_G}ok${_N} ~/repos/ags/test_root/alpha/four"
-); get_expect
-check_output "ags"
+# ags default settings
+function test2() {
+  get_output "$ags $TESTDIR/scanlist"
+  get_expect=(
+  "${_Y}S ${_N} ~/repos/ags/test_root/alpha/one"
+  "${_Y}S ${_N} ~/repos/ags/test_root/alpha/two"
+  "${_Y} C${_N} ~/repos/ags/test_root/alpha/three"
+  "${_G}ok${_N} ~/repos/ags/test_root/alpha/four"
+  "${_R}!!${_N} ~/repos/ags/test_root/alpha/five"
+  )
+  check_output "ags"
+}
 
-# test 3: ags long format
-get_output "$ags -l $TEST/scanlist"
-expect_arr=(
-"${_S}~/repos/ags/test_root/alpha/one${_N}"
-"D  staged_deletion"
-"A  staged_file"
-" D untracked_deletion"
-"?? untracked_file"
-"${_S}~/repos/ags/test_root/alpha/two${_N}"
-"MD modified_file_deleted"
-"MM modified_file_modified"
-"AD new_file_deleted"
-"AM new_file_modified"
-"${_S}~/repos/ags/test_root/alpha/three${_N}"
-"skip_check" # this one has a unique commit id each time
-"${_G}ok${_S} ~/repos/ags/test_root/alpha/four${_N}"
-); get_expect;
-check_output "ags -l"
+# ags long format
+function test3() {
+  get_output "$ags -l $TESTDIR/scanlist"
+  get_expect=(
+  "${_S}~/repos/ags/test_root/alpha/one${_N}"
+  "D  staged_deletion"
+  "A  staged_file"
+  " D untracked_deletion"
+  "?? untracked_file"
+  "${_S}~/repos/ags/test_root/alpha/two${_N}"
+  "MD modified_file_deleted"
+  "MM modified_file_modified"
+  "AD new_file_deleted"
+  "AM new_file_modified"
+  "${_S}~/repos/ags/test_root/alpha/three${_N}"
+  "skip_check" # this one has a unique commit id each time
+  "${_G}ok${_S} ~/repos/ags/test_root/alpha/four${_N}"
+  "${_R}!!${_N} ~/repos/ags/test_root/alpha/five ${_Y}(invalid directory)${_N}"
+  )
+  check_output "ags -l"
+}
+
+test1
+test2
+test3
 
 if [[ $tree == true ]]; then
   plain_div
   title "TREE"
-  tree $TEST
+  tree $TESTDIR
 fi
