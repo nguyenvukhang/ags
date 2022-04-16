@@ -3,8 +3,10 @@
 # This simply copies the script into INSTALL_LOCATION
 # Just make sure that INSTALL_LOCATION is part of your PATH variable
 
-AGSFILE=/usr/local/bin/ags
-MANFILE=/usr/local/share/man/man1/ags.1.gz
+TARGET_AGS_DIR=/usr/local/bin
+AGSFILE=$TARGET_AGS_DIR/ags
+TARGET_MAN_DIR=/usr/local/share/man/man1
+MANFILE=$TARGET_MAN_DIR/ags.1.gz
 
 trap "rm -f ags.1.gz" EXIT
 
@@ -20,9 +22,11 @@ done
 
 if [[ $uninstall == false ]]; then
   # install ags
+  sudo mkdir -p $TARGET_AGS_DIR 2> /dev/null
   sudo cp ags $AGSFILE
   # install man page
   gzip --keep ags.1
+  sudo mkdir -p $TARGET_MAN_DIR 2> /dev/null
   sudo mv ags.1.gz /usr/local/share/man/man1
   if [[ -f $AGSFILE && -f $MANFILE ]]; then
     printf "Installation successful.\n"
